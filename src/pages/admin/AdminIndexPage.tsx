@@ -10,6 +10,12 @@ import { cn, formatPrice } from '@/lib/utils';
 
 type PeriodKey = 'today' | 'week' | 'month';
 
+const PERIOD_KEYS: Record<PeriodKey, string> = {
+  today: 'admin.overview.today',
+  week: 'admin.overview.thisWeek',
+  month: 'admin.overview.thisMonth',
+};
+
 export function AdminIndexPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
@@ -89,7 +95,7 @@ export function AdminIndexPage() {
                   period === p ? 'bg-brand-600 text-white' : 'text-night-300 hover:text-night-50',
                 )}
               >
-                {t(`admin.overview.${p}`)}
+                {t(PERIOD_KEYS[p])}
               </button>
             ))}
           </div>
