@@ -17,6 +17,15 @@ const applyDocumentDirection = (lng: string): void => {
   document.documentElement.dir = LANGUAGES[lang].dir;
 };
 
+const initialLanguage = (() => {
+  try {
+    const stored = localStorage.getItem('ph_lang');
+    return stored === 'en' || stored === 'ar' ? stored : 'ar';
+  } catch {
+    return 'ar';
+  }
+})();
+
 void i18next
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -25,7 +34,7 @@ void i18next
       ar: { translation: ar },
       en: { translation: en },
     },
-    lng: 'ar',
+    lng: initialLanguage,
     fallbackLng: 'ar',
     supportedLngs: ['ar', 'en'],
     interpolation: { escapeValue: false },
