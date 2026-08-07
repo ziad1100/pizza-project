@@ -1,5 +1,5 @@
-﻿import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+﻿import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -36,6 +36,15 @@ export function LoginPage() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const [serverError, setServerError] = useState('');
+  const [oauthError, setOauthError] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'deactivated') setOauthError(t('auth.accountDeactivated'));
+    else if (error === 'google' || error === 'facebook') setOauthError(t('auth.socialLoginFailed'));
+    if (error) setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams, t]);
 
   const { data: providers } = useQuery({
     queryKey: ['social-providers'],
@@ -92,6 +101,12 @@ export function LoginPage() {
           <h1 className="mt-4 text-2xl font-extrabold text-night-50">{t('auth.loginTitle')}</h1>
           <p className="mt-1 text-sm text-night-400">{t('auth.loginSubtitle')}</p>
         </div>
+
+        {oauthError ? (
+          <p className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-center text-sm text-red-400">
+            {oauthError}
+          </p>
+        ) : null}
 
         <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
           <div>

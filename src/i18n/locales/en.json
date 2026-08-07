@@ -183,6 +183,7 @@
     "facebook": "Continue with Facebook",
     "or": "or",
     "socialLoginFailed": "Social login failed. Please try again.",
+    "accountDeactivated": "This account has been deactivated. Contact support for help.",
     "forgotTitle": "Forgot your password?",
     "forgotSubtitle": "Enter your email and we'll send you a reset link",
     "sendResetLink": "Send reset link",
