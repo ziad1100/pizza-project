@@ -1,17 +1,19 @@
 ﻿import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Clock, Flame, Leaf, Phone, Star, Truck, UtensilsCrossed } from 'lucide-react';
-import { getBestSellers, getOffers } from '@/api/products';
+import { ArrowLeft, Clock, Flame, Leaf, Phone, Star, Tag, Truck, UtensilsCrossed } from 'lucide-react';
+import { getBestSellers } from '@/api/products';
+import { getActiveOffers } from '@/api/offers';
 import { ProductCard } from '@/components/product/ProductCard';
+import { OfferCard } from '@/components/offer/OfferCard';
 import { Button } from '@/components/ui/Button';
-import { Skeleton } from '@/components/ui/Card';
+import { EmptyState, Skeleton } from '@/components/ui/Card';
 
 export function HomePage() {
   const { t } = useTranslation();
 
   const bestSellers = useQuery({ queryKey: ['products', 'best-sellers'], queryFn: getBestSellers });
-  const offers = useQuery({ queryKey: ['products', 'offers'], queryFn: getOffers });
+  const offers = useQuery({ queryKey: ['offers', 'active'], queryFn: getActiveOffers });
 
   const features = [
     { icon: UtensilsCrossed, title: t('home.whyDough'), desc: t('home.whyDoughDesc') },
@@ -46,7 +48,7 @@ export function HomePage() {
                   <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
                 </Button>
               </Link>
-              <Link to="/menu?offers=1">
+              <Link to="/offers">
                 <Button variant="outline" size="lg">
                   {t('hero.ctaOffers')}
                 </Button>
@@ -108,17 +110,36 @@ export function HomePage() {
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h2 className="text-3xl font-extrabold text-night-50">{t('home.deals')}</h2>
-            <p className="mt-1 text-night-400">{t('menu.subtitle')}</p>
+            <p className="mt-1 text-night-400">{t('offers.subtitle')}</p>
           </div>
-          <Link to="/menu" className="hidden text-sm font-bold text-brand-500 hover:text-brand-400 sm:block">
+          <Link to="/offers" className="hidden text-sm font-bold text-brand-500 hover:text-brand-400 sm:block">
             {t('common.viewAll')}
           </Link>
         </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {offers.isLoading
-            ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-[4/5]" />)
-            : offers.data?.map((product) => <ProductCard key={product._id} product={product} />)}
-        </div>
+        {offers.isLoading ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-72" />
+            ))}
+          </div>
+        ) : !offers.data || offers.data.length === 0 ? (
+          <EmptyState
+            icon={<Tag className="h-10 w-10" />}
+            title={t('offers.empty')}
+            hint={t('offers.emptyHint')}
+            action={
+              <Link to="/menu">
+                <Button variant="gold">{t('offers.browseMenu')}</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {offers.data.map((offer) => (
+              <OfferCard key={offer._id} offer={offer} />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="bg-night-900 py-16">

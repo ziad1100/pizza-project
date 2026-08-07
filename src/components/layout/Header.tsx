@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 const navLinks = [
   { to: '/', key: 'home' },
   { to: '/menu', key: 'menu' },
+  { to: '/offers', key: 'offers' },
   { to: '/about', key: 'about' },
   { to: '/branches', key: 'branches' },
   { to: '/blog', key: 'blog' },

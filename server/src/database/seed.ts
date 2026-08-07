@@ -198,6 +198,11 @@ const seedCommerce = async (): Promise<void> => {
     { code: 'SAVE30', type: 'fixed', value: 30, minOrder: 250, endDate: inDays(30) },
   ]);
 
+const offerProductIds = async (slugs: string[]): Promise<unknown[]> => {
+  const docs = await Product.find({ slug: { $in: slugs } }).select('_id').lean();
+  return docs.map((d) => d._id);
+};
+
 await Offer.create([
     {
       title: 'أوفير الأسبوع',
@@ -207,7 +212,14 @@ await Offer.create([
       discountType: 'fixed',
       discountValue: 50,
       startDate: now,
-      endDate: inDays(14),
+      endDate: inDays(30),
+      products: await offerProductIds([
+        'margherita-cheese-italian',
+        'chicken-chicken-italian',
+        'kranshi-chicken-chicken-italian',
+        'thawret-orabi-mix-italian',
+        'super-supreme-mix-italian',
+      ]),
       theme: 'red',
       isActive: true,
     },
@@ -219,7 +231,17 @@ await Offer.create([
       discountType: 'percent',
       discountValue: 20,
       startDate: now,
-      endDate: inDays(7),
+      endDate: inDays(30),
+      products: await offerProductIds([
+        'kunafa-sweet-feteer-sweet-feteer',
+        'mixed-sweets-sweet-feteer-sweet-feteer',
+        'lotus-sweet-feteer-sweet-feteer',
+        'oreo-chocolate-sweet-feteer-sweet-feteer',
+        'cream-and-honey-sweet-feteer-sweet-feteer',
+        'basbousa-sweet-feteer-sweet-feteer',
+        'basbousa-and-cocoa-sweet-feteer-sweet-feteer',
+        'beldi-butter-meshaltet-meshaltet-meshaltet',
+      ]),
       theme: 'dark',
       isActive: true,
     },
@@ -231,7 +253,15 @@ await Offer.create([
       discountType: 'fixed',
       discountValue: 40,
       startDate: now,
-      endDate: inDays(21),
+      endDate: inDays(30),
+      products: await offerProductIds([
+        'chicken-mix-mix-italian',
+        'meat-mix-mix-italian',
+        'cheese-mix-mix-italian',
+        'smoked-sweet-mix-mix-italian',
+        'chicken-beef-sausage-mix-italian',
+        'chickenpastramimeat-mix-mix-italian',
+      ]),
       theme: 'gold',
       isActive: true,
     },

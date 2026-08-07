@@ -145,6 +145,16 @@
     },
     "cancel": "Cancel order"
   },
+  "offers": {
+    "title": "Special Offers",
+    "subtitle": "Limited-time deals on your favorite dishes",
+    "endsAt": "Ends",
+    "items": "items",
+    "viewItems": "View offer items",
+    "empty": "No active offers right now",
+    "emptyHint": "Check back soon — new deals are on the way.",
+    "browseMenu": "Browse the menu"
+  },
   "auth": {
     "loginTitle": "Welcome back",
     "loginSubtitle": "Sign in to track your orders",
