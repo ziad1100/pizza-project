@@ -17,6 +17,14 @@ export const activeOffers = asyncHandler(async (_req: Request, res: Response) =>
   res.json(new ApiResponse(200, offers));
 });
 
+export const getOne = asyncHandler(async (req: Request, res: Response) => {
+  const offer = await Offer.findOne({ _id: req.params.id, isActive: true })
+    .populate('products')
+    .lean();
+  if (!offer) throw new ApiError(404, 'Offer not found');
+  res.json(new ApiResponse(200, offer));
+});
+
 export const list = asyncHandler(async (_req: Request, res: Response) => {
   const offers = await Offer.find().sort('-createdAt').lean();
   res.json(new ApiResponse(200, offers));

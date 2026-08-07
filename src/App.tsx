@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks/useTheme';
 
 const MenuPage = lazy(() => import('@/pages/MenuPage').then((m) => ({ default: m.MenuPage })));
 const OffersPage = lazy(() => import('@/pages/OffersPage').then((m) => ({ default: m.OffersPage })));
+const OfferDetailPage = lazy(() => import('@/pages/OfferDetailPage').then((m) => ({ default: m.OfferDetailPage })));
 const ProductPage = lazy(() => import('@/pages/ProductPage').then((m) => ({ default: m.ProductPage })));
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })));
@@ -73,6 +74,7 @@ const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'menu', element: <MenuPage /> },
       { path: 'offers', element: <OffersPage /> },
+      { path: 'offers/:id', element: <OfferDetailPage /> },
       { path: 'product/:slug', element: <ProductPage /> },
       {
         path: 'login',

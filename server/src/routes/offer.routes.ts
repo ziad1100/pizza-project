@@ -8,6 +8,7 @@ import { offerCreateSchema, offerUpdateSchema } from '../schemas';
 const router = Router();
 
 router.get('/active', offer.activeOffers);
+router.get('/:id', offer.getOne);
 
 router.use(requireAuth);
 router.use(requirePermission('offers', 'read'));

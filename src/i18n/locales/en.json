@@ -151,6 +151,9 @@
     "endsAt": "Ends",
     "items": "items",
     "viewItems": "View offer items",
+    "backToOffers": "Back to all offers",
+    "notFound": "Offer not found",
+    "notFoundHint": "This offer is no longer available.",
     "empty": "No active offers right now",
     "emptyHint": "Check back soon — new deals are on the way.",
     "browseMenu": "Browse the menu"

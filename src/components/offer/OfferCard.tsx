@@ -5,13 +5,8 @@ import { CalendarClock, Percent, Tag } from 'lucide-react';
 import type { OfferWithProducts } from '@/api/offers';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Card';
+import { offerThemeClasses } from '@/components/offer/offerTheme';
 import { cn, formatPrice } from '@/lib/utils';
-
-const themeGradients: Record<OfferWithProducts['theme'], string> = {
-  dark: 'from-night-800 via-night-900 to-night-950',
-  red: 'from-brand-700 via-brand-800 to-brand-900',
-  gold: 'from-gold-600 via-gold-700 to-night-900',
-};
 
 export function OfferCard({ offer }: { offer: OfferWithProducts }) {
   const { t, i18n } = useTranslation();
@@ -43,10 +38,7 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
     <div
       className={cn(
         'relative flex flex-col overflow-hidden rounded-3xl border bg-gradient-to-br p-7 shadow-xl md:p-8',
-        offer.theme === 'dark' && 'border-night-700',
-        offer.theme === 'red' && 'border-brand-600/50',
-        offer.theme === 'gold' && 'border-gold-500/50',
-        themeGradients[offer.theme],
+        offerThemeClasses(offer.theme),
       )}
     >
       <span className="pointer-events-none absolute -start-10 -top-10 h-44 w-44 rounded-full bg-white/10 blur-3xl" />
@@ -100,7 +92,7 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
       ) : null}
 
       <div className="relative mt-auto pt-7">
-        <Link to="/menu?offers=1">
+        <Link to={`/offers/${offer._id}`}>
           <Button variant={offer.theme === 'gold' ? 'primary' : 'gold'} className="w-full">
             {t('offers.viewItems')}
           </Button>
