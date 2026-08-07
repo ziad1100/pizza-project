@@ -51,7 +51,7 @@ export function AdminIndexPage() {
   ];
 
   const dailyStats = dashboard.data?.dailyStats ?? [];
-  const unitsWindow = period === 'month' ? dailyStats : dailyStats.slice(-7);
+  const unitsWindow = period === 'today' ? dailyStats.slice(-1) : period === 'month' ? dailyStats : dailyStats.slice(-7);
   const periodTop = metrics?.topProducts ?? [];
 
   return (
@@ -141,7 +141,7 @@ export function AdminIndexPage() {
           <Card>
             <CardContent className="p-5">
               <h3 className="mb-4 text-sm font-bold text-night-200">
-                {t('admin.unitsTrend', { days: period === 'month' ? 30 : 7 })}
+                {period === 'today' ? t('admin.unitsToday') : t('admin.unitsTrend', { days: period === 'month' ? 30 : 7 })}
               </h3>
               {unitsWindow.length > 0 ? (
                 <div className="flex h-40 items-end gap-2">

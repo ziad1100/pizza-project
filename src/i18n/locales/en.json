@@ -354,6 +354,7 @@
     },
     "periodTitle": "Period breakdown",
     "unitsTrend": "Units sold — last {{days}} days",
+    "unitsToday": "Units sold — today",
     "statusTitle": "Orders by status",
     "topProducts": "Top products",
     "last7Days": "Revenue — last 7 days",

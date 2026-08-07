@@ -6,6 +6,7 @@ import {
   ChevronRight,
   FileText,
   Image as ImageIcon,
+  Languages,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -25,6 +26,7 @@ import {
 import { Logo } from '@/components/logo/Logo';
 import { useAppDispatch, useAppSelector } from '@/hooks';
 import { useTheme } from '@/hooks/useTheme';
+import { changeLanguage, type LanguageCode } from '@/i18n';
 import { clearCredentials } from '@/store/slices/authSlice';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -64,12 +66,17 @@ const navGroups: { label: string; items: { to: string; icon: typeof LayoutDashbo
 ];
 
 export function AdminLayout() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
   const { theme, toggleTheme } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const toggleLanguage = (): void => {
+    const next: LanguageCode = i18n.language === 'ar' ? 'en' : 'ar';
+    changeLanguage(next);
+  };
 
   const handleLogout = (): void => {
     void api.post('/auth/logout');
@@ -183,6 +190,14 @@ export function AdminLayout() {
             <h1 className="text-lg font-bold text-night-50">{t('admin.title')}</h1>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggleLanguage}
+              aria-label="language"
+              className="flex h-9 items-center gap-1 rounded-xl px-2.5 text-sm font-bold text-night-200 transition-colors hover:bg-night-800 hover:text-night-50"
+            >
+              <Languages className="h-4 w-4" />
+              <span>{t('nav.language')}</span>
+            </button>
             <button
               onClick={toggleTheme}
               aria-label="theme"
