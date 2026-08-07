@@ -69,7 +69,7 @@ export function CheckoutPage() {
           product: line.productId,
           size: line.size,
           sizeName: line.sizeName,
-          extras: line.extras.map((e) => ({ name: line.name, price: e.price })),
+          extras: line.extras.map((e) => ({ name: e.name, price: e.price })),
           qty: line.qty,
         })),
         couponCode: couponCode || undefined,

@@ -41,14 +41,18 @@ export const createOrder = asyncHandler(async (req: AuthRequest, res: Response) 
     if (!product) throw new ApiError(404, 'Product not found in order');
     const size = product.sizes.find((s) => String(s._id) === String(item.size));
     const unitPrice = size?.price ?? product.basePrice;
-    const extrasTotal = (item.extras ?? []).reduce((acc, e) => acc + (Number(e.price) || 0), 0);
+    const extras = (item.extras ?? []).map((e) => {
+      const dbExtra = product.extras.find((p) => p.name === e.name || p.nameEn === e.name);
+      return dbExtra ? { name: dbExtra.name, price: dbExtra.price } : { name: e.name, price: Number(e.price) || 0 };
+    });
+    const extrasTotal = extras.reduce((acc, e) => acc + (Number(e.price) || 0), 0);
     const lineTotal = (unitPrice + extrasTotal) * Math.max(1, item.qty);
     subtotal += lineTotal;
     return {
       product: product._id,
       name: product.name,
       size: size?.name ?? '',
-      extras: item.extras ?? [],
+      extras,
       qty: Math.max(1, item.qty),
       unitPrice: unitPrice + extrasTotal,
       lineTotal,
@@ -83,23 +87,35 @@ export const createOrder = asyncHandler(async (req: AuthRequest, res: Response) 
     amount: total,
   };
 
-  const order = await Order.create({
-    orderNo,
-    user: new Types.ObjectId(userId),
-    items: orderItems,
-    subtotal,
-    deliveryFee,
-    discount,
-    couponCode: couponCode?.toUpperCase() ?? '',
-    total,
-    payment,
-    status: ORDER_STATUS.PENDING,
-    deliveryAddress: address,
-    phone,
-    customerName: req.body.customerName || 'عميل',
-    notes,
-    statusHistory: [{ status: ORDER_STATUS.PENDING, changedBy: new Types.ObjectId(userId), at: new Date() }],
-  });
+  const order = await (async () => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await Order.create({
+          orderNo,
+          user: new Types.ObjectId(userId),
+          items: orderItems,
+          subtotal,
+          deliveryFee,
+          discount,
+          couponCode: couponCode?.toUpperCase() ?? '',
+          total,
+          payment,
+          status: ORDER_STATUS.PENDING,
+          deliveryAddress: address,
+          phone,
+          customerName: req.body.customerName || 'عميل',
+          notes,
+          statusHistory: [{ status: ORDER_STATUS.PENDING, changedBy: new Types.ObjectId(userId), at: new Date() }],
+        });
+      } catch (err) {
+        if ((err as { code?: number })?.code === 11000 && attempt < 2) {
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new ApiError(500, 'Could not create order');
+  })();
 
   const senderEmail = (await User.findById(userId).select('email').lean())?.email ?? '';
   void sendOrderConfirmation(senderEmail, orderNo, total).catch(() => undefined);
