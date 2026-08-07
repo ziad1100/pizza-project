@@ -28,3 +28,23 @@ export const orderRules = [
   check('phone').trim().notEmpty().withMessage('Phone is required'),
   check('address').isObject().withMessage('Delivery address is required'),
 ];
+
+export const postRules = [
+  check('title').optional().trim().isLength({ max: 200 }),
+  check('titleEn').optional().trim().isLength({ max: 200 }),
+  check('excerpt').optional().trim().isLength({ max: 400 }),
+  check('excerptEn').optional().trim().isLength({ max: 400 }),
+  check('content').optional().trim().isLength({ max: 50000 }),
+  check('contentEn').optional().trim().isLength({ max: 50000 }),
+  check('slug').optional().trim().isLength({ max: 200 }),
+  check('image').optional().trim().isLength({ max: 500 }),
+  check('tags').optional().isArray().withMessage('Tags must be an array'),
+  check('tags.*').optional().isString().isLength({ max: 50 }),
+  check('isPublished').optional().isBoolean().withMessage('isPublished must be a boolean'),
+  check('publishedAt').optional().isISO8601().withMessage('publishedAt must be a valid date'),
+];
+
+export const postCreateRules = [
+  check('title').trim().notEmpty().withMessage('Post title is required').isLength({ max: 200 }),
+  ...postRules,
+];
