@@ -1,0 +1,248 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import Category from '../../models/Category';
+import Product from '../../models/Product';
+import { api, bearer, createUser, seedRoles, toId } from '../helpers';
+
+const AUTH = '/api/v1/auth';
+const ORDERS = '/api/v1/orders';
+const PRODUCTS = '/api/v1/products';
+const REVIEWS = '/api/v1/reviews';
+const COUPONS = '/api/v1/coupons';
+const CART = '/api/v1/cart';
+const SETTINGS = '/api/v1/settings';
+const CATEGORIES = '/api/v1/categories';
+const OFFERS = '/api/v1/offers';
+const BRANCHES = '/api/v1/branches';
+const CONTACT = '/api/v1/contacts';
+
+const setupCatalog = async () => {
+  const category = await Category.create({ name: 'بيتزا', nameEn: 'Pizza', slug: 'pizza', type: 'section', isActive: true });
+  const product = await Product.create({
+    name: 'بيبروني',
+    nameEn: 'Pepperoni',
+    slug: 'pepperoni',
+    category: category._id,
+    basePrice: 120,
+    sizes: [{ name: 'كبير', nameEn: 'Large', price: 150 }],
+    extras: [{ name: 'جبنة إضافية', nameEn: 'Extra cheese', price: 10 }],
+    isAvailable: true,
+  });
+  return { category, product };
+};
+
+describe('zod validation', () => {
+  beforeEach(async () => {
+    await seedRoles();
+  });
+
+  describe('auth', () => {
+    it('rejects an invalid email on register with 422', async () => {
+      const res = await api.post(`${AUTH}/register`).send({ fullName: 'Bad', email: 'not-an-email', password: 'Pizza123!' });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a password without digits on register with 422', async () => {
+      const res = await api.post(`${AUTH}/register`).send({ fullName: 'Bad', email: 'a@b.com', password: 'abcdefgh' });
+      expect(res.status).toBe(422);
+    });
+
+    it('requires adminCode when registering as admin with 422', async () => {
+      const res = await api.post(`${AUTH}/register`).send({
+        fullName: 'Bad',
+        email: 'admin@x.com',
+        password: 'Pizza123!',
+        role: 'admin',
+      });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a short new password on change-password with 422', async () => {
+      const user = await createUser();
+      const res = await api
+        .post(`${AUTH}/change-password`)
+        .set(bearer(toId(user._id)))
+        .send({ currentPassword: 'Pizza123!', newPassword: 'short' });
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe('orders', () => {
+    it('rejects an item without qty with 422', async () => {
+      const { product } = await setupCatalog();
+      const user = await createUser();
+      const res = await api
+        .post(ORDERS)
+        .set(bearer(toId(user._id)))
+        .send({
+          items: [{ product: toId(product._id) }],
+          address: { city: 'Cairo', street: 'Main', building: '5' },
+          phone: '01000000000',
+        });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects an item with an invalid product id format with 422', async () => {
+      const user = await createUser();
+      const res = await api
+        .post(ORDERS)
+        .set(bearer(toId(user._id)))
+        .send({
+          items: [{ product: 'xyz', qty: 1 }],
+          address: { city: 'Cairo', street: 'Main', building: '5' },
+          phone: '01000000000',
+        });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a zero quantity with 422', async () => {
+      const { product } = await setupCatalog();
+      const user = await createUser();
+      const res = await api
+        .post(ORDERS)
+        .set(bearer(toId(user._id)))
+        .send({
+          items: [{ product: toId(product._id), qty: 0 }],
+          address: { city: 'Cairo', street: 'Main', building: '5' },
+          phone: '01000000000',
+        });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a negative extra price with 422', async () => {
+      const { product } = await setupCatalog();
+      const user = await createUser();
+      const res = await api
+        .post(ORDERS)
+        .set(bearer(toId(user._id)))
+        .send({
+          items: [{ product: toId(product._id), qty: 1, extras: [{ name: 'X', price: -5 }] }],
+          address: { city: 'Cairo', street: 'Main', building: '5' },
+          phone: '01000000000',
+        });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a missing address with 422', async () => {
+      const { product } = await setupCatalog();
+      const user = await createUser();
+      const res = await api.post(ORDERS).set(bearer(toId(user._id))).send({ items: [{ product: toId(product._id), qty: 1 }] });
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe('cart', () => {
+    it('rejects a zero quantity on addItem with 422', async () => {
+      const { product } = await setupCatalog();
+      const user = await createUser();
+      const res = await api
+        .post(`${CART}/items`)
+        .set(bearer(toId(user._id)))
+        .send({ product: toId(product._id), qty: 0 });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects an invalid product id on addItem with 422', async () => {
+      const user = await createUser();
+      const res = await api
+        .post(`${CART}/items`)
+        .set(bearer(toId(user._id)))
+        .send({ product: 'not-an-id', qty: 1 });
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe('content & admin', () => {
+    it('rejects a negative base price on product create with 422', async () => {
+      const { category } = await setupCatalog();
+      const admin = await createUser({ role: 'admin' });
+      const res = await api
+        .post(PRODUCTS)
+        .set(bearer(toId(admin._id)))
+        .send({ name: 'X', category: toId(category._id), basePrice: -5 });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a non-numeric product update field with 422', async () => {
+      const { product } = await setupCatalog();
+      const admin = await createUser({ role: 'admin' });
+      const res = await api
+        .patch(`${PRODUCTS}/${toId(product._id)}`)
+        .set(bearer(toId(admin._id)))
+        .send({ basePrice: 'not-a-number' });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects an invalid category type with 422', async () => {
+      const admin = await createUser({ role: 'admin' });
+      const res = await api.post(CATEGORIES).set(bearer(toId(admin._id))).send({ name: 'X', type: 'nope' });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects an offer missing startDate with 422', async () => {
+      const admin = await createUser({ role: 'admin' });
+      const res = await api.post(OFFERS).set(bearer(toId(admin._id))).send({ title: 'Big Deal' });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a branch missing a name with 422', async () => {
+      const admin = await createUser({ role: 'admin' });
+      const res = await api.post(BRANCHES).set(bearer(toId(admin._id))).send({ address: 'Cairo' });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects an invalid coupon type with 422', async () => {
+      const admin = await createUser({ role: 'admin' });
+      const res = await api.post(COUPONS).set(bearer(toId(admin._id))).send({ code: 'X10', type: 'half', value: 5 });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a negative coupon value with 422', async () => {
+      const admin = await createUser({ role: 'admin' });
+      const res = await api.post(COUPONS).set(bearer(toId(admin._id))).send({ code: 'X10', type: 'percent', value: -3 });
+      expect(res.status).toBe(422);
+    });
+
+    it('rejects a non-boolean rating on review moderate with 422', async () => {
+      const { product } = await setupCatalog();
+      const admin = await createUser({ role: 'admin' });
+      const created = await api
+        .post(REVIEWS)
+        .set(bearer(toId(admin._id)))
+        .send({ product: toId(product._id), rating: 5 });
+      const reviewId = created.body.data._id;
+      const res = await api
+        .patch(`${REVIEWS}/${reviewId}/moderate`)
+        .set(bearer(toId(admin._id)))
+        .send({ isApproved: 'yes' });
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe('settings', () => {
+    it('strips unknown keys while persisting known ones', async () => {
+      const admin = await createUser({ role: 'admin' });
+      const res = await api
+        .patch(SETTINGS)
+        .set(bearer(toId(admin._id)))
+        .send({ deliveryFee: 30, evilSetting: 'injected' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.deliveryFee).toBe(30);
+      expect('evilSetting' in res.body.data).toBe(false);
+    });
+
+    it('rejects a non-numeric delivery fee with 422', async () => {
+      const admin = await createUser({ role: 'admin' });
+      const res = await api.patch(SETTINGS).set(bearer(toId(admin._id))).send({ deliveryFee: 'abc' });
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe('misc public', () => {
+    it('rejects an invalid contact email with 422', async () => {
+      const res = await api
+        .post(CONTACT)
+        .send({ name: 'N', phone: '01000000000', email: 'bad', message: 'hi' });
+      expect(res.status).toBe(422);
+    });
+  });
+});

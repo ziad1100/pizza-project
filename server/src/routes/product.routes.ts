@@ -2,8 +2,8 @@ import { Router } from 'express';
 import * as product from '../controllers/product.controller';
 import { requireAuth, requirePermission } from '../middlewares/auth';
 import { logActivity } from '../middlewares/activityLogger';
-import { validate } from '../middlewares/validate';
-import { productCreateRules } from '../validators/common.validator';
+import { zodBody } from '../middlewares/zod';
+import { productCreateSchema, productUpdateSchema } from '../schemas';
 
 const router = Router();
 
@@ -18,14 +18,14 @@ router.use(requireAuth);
 router.post(
   '/',
   requirePermission('products', 'create'),
-  productCreateRules,
-  validate,
+  zodBody(productCreateSchema),
   logActivity('create', 'products'),
   product.createProduct,
 );
 router.patch(
   '/:id',
   requirePermission('products', 'update'),
+  zodBody(productUpdateSchema),
   logActivity('update', 'products'),
   product.updateProduct,
 );

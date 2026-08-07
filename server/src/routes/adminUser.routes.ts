@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { listUsers, updateUser, deleteUser } from '../controllers/user.controller';
 import { requireAuth, requirePermission } from '../middlewares/auth';
 import { logActivity } from '../middlewares/activityLogger';
+import { zodBody } from '../middlewares/zod';
+import { adminUpdateUserSchema } from '../schemas';
 import ActivityLog from '../models/ActivityLog';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -10,7 +12,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', requirePermission('users', 'read'), listUsers);
-router.patch('/:id', requirePermission('users', 'update'), logActivity('update', 'users'), updateUser);
+router.patch('/:id', requirePermission('users', 'update'), zodBody(adminUpdateUserSchema), logActivity('update', 'users'), updateUser);
 router.delete('/:id', requirePermission('users', 'delete'), logActivity('delete', 'users'), deleteUser);
 
 router.get(

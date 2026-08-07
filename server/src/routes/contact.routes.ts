@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import * as contact from '../controllers/contact.controller';
 import { requireAuth, requirePermission } from '../middlewares/auth';
-import { validate } from '../middlewares/validate';
-import { contactRules } from '../validators/common.validator';
+import { zodBody } from '../middlewares/zod';
+import { contactSchema } from '../schemas';
 
 const router = Router();
 
-router.post('/', contactRules, validate, contact.submit);
+router.post('/', zodBody(contactSchema), contact.submit);
 
 router.use(requireAuth);
 router.use(requirePermission('contacts', 'read'));
