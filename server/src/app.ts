@@ -13,11 +13,15 @@ import { corsOptions } from './config/cors';
 import { notFound } from './middlewares/notFound';
 import { errorHandler } from './middlewares/errorHandler';
 import { uploadsDir } from './middlewares/upload';
+import { requestIdMiddleware, latencyMiddleware } from './middlewares/diagnostics';
 import routes from './routes';
 
 const app = express();
 
 app.disable('x-powered-by');
+
+app.use(requestIdMiddleware);
+app.use(latencyMiddleware);
 
 app.use(helmet());
 const corsHandler = cors(corsOptions);
