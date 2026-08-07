@@ -173,7 +173,15 @@ export const socialAuthCallback = (provider: 'google' | 'facebook') =>
     const profile = req.user as { id: string; displayName: string; emails?: { value: string }[]; photos?: { value: string }[] };
     const email = profile.emails?.[0]?.value ?? `${profile.id}@${provider}.local`;
     let user = await User.findOne({ email });
-    if (!user) {
+    if (user) {
+      if (!user.isActive) {
+        return res.redirect(`${env.clientUrl}/login?error=deactivated`);
+      }
+      user.provider = provider;
+      user.providerId = profile.id;
+      if (!user.avatar && profile.photos?.[0]?.value) user.avatar = profile.photos[0].value;
+      await user.save();
+    } else {
       user = await User.create({
         fullName: profile.displayName,
         email,
@@ -184,6 +192,6 @@ export const socialAuthCallback = (provider: 'google' | 'facebook') =>
       });
     }
     const { accessToken } = setAuthCookies(res, String(user._id));
-    const redirect = `${process.env.CLIENT_URL}/auth/callback?accessToken=${accessToken}`;
+    const redirect = `${env.clientUrl}/auth/callback#accessToken=${accessToken}`;
     res.redirect(redirect);
   });

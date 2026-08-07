@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getMe } from '@/api/auth';
@@ -12,15 +12,28 @@ export function AuthCallbackPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const token = searchParams.get('accessToken');
+    const error = searchParams.get('error');
+    if (error) {
+      toast.error(t('auth.socialLoginFailed'));
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    let token = searchParams.get('accessToken');
+    if (!token) {
+      const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+      token = hash.get('accessToken') ?? '';
+    }
     if (!token) {
       toast.error(t('auth.socialLoginFailed'));
       navigate('/login', { replace: true });
       return;
     }
+
     setStoredToken(token);
     getMe()
       .then((user) => {
@@ -31,7 +44,7 @@ export function AuthCallbackPage() {
         toast.error(t('auth.socialLoginFailed'));
         navigate('/login', { replace: true });
       });
-  }, [searchParams, navigate, dispatch, t]);
+  }, [location.hash, searchParams, navigate, dispatch, t]);
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center">

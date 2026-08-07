@@ -32,7 +32,7 @@ if (env.googleClientId) {
   );
   router.get(
     '/google/callback',
-    passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+    passport.authenticate('google', { session: false, failureRedirect: `${env.clientUrl}/login?error=google` }),
     auth.socialAuthCallback('google'),
   );
 }
@@ -41,7 +41,7 @@ if (env.facebookClientId) {
   router.get('/facebook', passport.authenticate('facebook', { scope: ['email'], session: false }));
   router.get(
     '/facebook/callback',
-    passport.authenticate('facebook', { session: false, failureRedirect: '/login' }),
+    passport.authenticate('facebook', { session: false, failureRedirect: `${env.clientUrl}/login?error=facebook` }),
     auth.socialAuthCallback('facebook'),
   );
 }

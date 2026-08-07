@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Request, Response } from 'express';
 import * as auth from './auth.controller';
 import User from '../models/User';
-import { createUser } from '../test/helpers';
+import { createUser, seedRoles } from '../test/helpers';
 
 interface MockRes {
   cookie: ReturnType<typeof vi.fn>;
@@ -31,13 +31,17 @@ const googleProfile = {
 };
 
 describe('socialAuthCallback', () => {
+  beforeEach(async () => {
+    await seedRoles();
+  });
+
   it('creates a new user for an unknown google profile and redirects with a token', async () => {
     const res = await callSocialAuth('google', googleProfile);
     const user = await User.findOne({ email: 'gina@example.com' }).lean();
     expect(user).not.toBeNull();
-    expect(user).toMatchObject({ provider: 'google', providerId: 'google-123', isVerified: true, avatar: 'https://example.com/gina.jpg' });
+    expect(user).toMatchObject({ provider: 'google', providerId: 'google-123', isVerified: true, avatar: 'https://example.com/gina.jpg', role: 'customer' });
     const redirectUrl = res.redirect.mock.calls[0][0] as string;
-    expect(redirectUrl).toContain('/auth/callback?accessToken=');
+    expect(redirectUrl).toContain('/auth/callback#accessToken=');
     expect(res.cookie).toHaveBeenCalled();
   });
 
@@ -47,6 +51,28 @@ describe('socialAuthCallback', () => {
     const users = await User.find({ email: 'gina@example.com' }).lean();
     expect(users).toHaveLength(1);
     expect(String(users[0]._id)).toBe(String(existing._id));
+  });
+
+  it('links the google provider onto an existing account and keeps its role', async () => {
+    await createUser({ email: 'boss@example.com', role: 'admin', avatar: '' });
+    const res = await callSocialAuth('google', {
+      ...googleProfile,
+      id: 'google-boss',
+      emails: [{ value: 'boss@example.com' }],
+    });
+    const user = await User.findOne({ email: 'boss@example.com' }).lean();
+    expect(user).toMatchObject({ provider: 'google', providerId: 'google-boss', role: 'admin', avatar: 'https://example.com/gina.jpg' });
+    expect(res.redirect.mock.calls[0][0] as string).toContain('/auth/callback#accessToken=');
+  });
+
+  it('redirects deactivated accounts to login with an error', async () => {
+    await createUser({ email: 'locked@example.com', isActive: false });
+    const res = await callSocialAuth('google', {
+      ...googleProfile,
+      emails: [{ value: 'locked@example.com' }],
+    });
+    expect(res.cookie).not.toHaveBeenCalled();
+    expect(res.redirect.mock.calls[0][0] as string).toContain('/login?error=deactivated');
   });
 
   it('falls back to a synthetic email for providers without one (facebook)', async () => {
@@ -59,6 +85,6 @@ describe('socialAuthCallback', () => {
     const user = await User.findOne({ email: 'fb-456@facebook.local' }).lean();
     expect(user).not.toBeNull();
     expect(user).toMatchObject({ provider: 'facebook', providerId: 'fb-456' });
-    expect(res.redirect.mock.calls[0][0] as string).toContain('/auth/callback?accessToken=');
+    expect(res.redirect.mock.calls[0][0] as string).toContain('/auth/callback#accessToken=');
   });
 });
