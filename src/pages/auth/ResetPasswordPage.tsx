@@ -10,11 +10,15 @@ import { resetPassword } from '@/api/auth';
 import { getErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { FieldError, Label, PasswordInput } from '@/components/ui/Input';
+import { OtpInput } from '@/components/ui/OtpInput';
+
+const CODE_LENGTH = 6;
 
 export function ResetPasswordPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token') ?? '';
+  const urlToken = searchParams.get('token') ?? '';
+  const [code, setCode] = useState('');
 
   const schema = z
     .object({
@@ -37,6 +41,9 @@ export function ResetPasswordPage() {
   const [serverError, setServerError] = useState('');
   const [done, setDone] = useState(false);
 
+  const token = urlToken || code;
+  const codeComplete = !urlToken && code.length === CODE_LENGTH;
+
   const mutation = useMutation({
     mutationFn: (values: FormValues) => resetPassword(token, values.password),
     onSuccess: () => {
@@ -46,19 +53,22 @@ export function ResetPasswordPage() {
     onError: (error) => setServerError(getErrorMessage(error)),
   });
 
-  if (!token) {
+  if (!urlToken && !codeComplete) {
     return (
       <div className="container-px flex min-h-[70vh] items-center justify-center py-16">
-        <div className="w-full max-w-md rounded-3xl border border-night-800 bg-night-900 p-8 text-center">
-          <Logo className="mx-auto h-14 w-14 rounded-2xl" />
-          <h1 className="mt-4 text-2xl font-extrabold text-night-50">{t('auth.resetTitle')}</h1>
-          <p className="mt-2 text-sm text-night-400">{t('auth.invalidResetLink')}</p>
-          <Link
-            to="/forgot-password"
-            className="mt-4 inline-block font-bold text-brand-500 hover:text-brand-400"
-          >
-            {t('auth.sendResetLink')}
-          </Link>
+        <div className="w-full max-w-md rounded-3xl border border-night-800 bg-night-900 p-8">
+          <div className="mb-8 text-center">
+            <Logo className="mx-auto h-14 w-14 rounded-2xl" />
+            <h1 className="mt-4 text-2xl font-extrabold text-night-50">{t('auth.otpHeading')}</h1>
+            <p className="mt-1 text-sm text-night-400">{t('auth.otpHint')}</p>
+          </div>
+          <OtpInput value={code} onChange={setCode} length={CODE_LENGTH} />
+          <p className="mt-3 text-center text-xs text-night-500">{t('auth.otpAutoNext')}</p>
+          <p className="mt-6 text-center text-sm text-night-400">
+            <Link to="/forgot-password" className="font-bold text-brand-500 hover:text-brand-400">
+              {t('auth.sendResetLink')}
+            </Link>
+          </p>
         </div>
       </div>
     );

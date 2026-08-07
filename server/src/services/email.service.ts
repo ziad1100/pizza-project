@@ -15,15 +15,17 @@ export const sendVerificationEmail = async (to: string, token: string): Promise<
   );
 };
 
-export const sendPasswordResetEmail = async (to: string, token: string): Promise<void> => {
-  const url = `${env.clientUrl}/reset-password?token=${token}`;
+export const sendPasswordResetOtpEmail = async (to: string, code: string): Promise<void> => {
   await sendMail(
     to,
-    'إعادة تعيين كلمة المرور - مطعم عرابي',
+    'كود إعادة تعيين كلمة المرور - مطعم عرابي',
     `<div dir="rtl" style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;background:#0d0d0d;color:#fff;border-radius:12px">
       <h1 style="color:#f6b100;text-align:center">مطعم عرابي | ORABI Restaurant</h1>
-      <p>اضغط الزر التالي لإعادة تعيين كلمة المرور (صالح لمدة 15 دقيقة):</p>
-      <a href="${url}" style="display:inline-block;padding:12px 24px;background:#f6b100;color:#0d0d0d;text-decoration:none;border-radius:8px;margin:12px 0;font-weight:bold">إعادة التعيين</a>
+      <p style="font-size:15px;line-height:1.6">استخدم الكود التالي لإعادة تعيين كلمة المرور. الكود صالح لمدة 15 دقيقة:</p>
+      <div style="text-align:center;margin:16px 0">
+        <span style="display:inline-block;font-size:34px;font-weight:800;letter-spacing:8px;background:#e31e24;color:#fff;padding:14px 26px;border-radius:10px">${code}</span>
+      </div>
+      <p style="color:#888;font-size:12px">أدخل الكود في صفحة إعادة تعيين كلمة المرور. إذا لم تطلب هذا، تجاهل الرسالة.</p>
     </div>`,
   );
 };

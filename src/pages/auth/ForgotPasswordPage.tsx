@@ -63,8 +63,14 @@ export function ForgotPasswordPage() {
               </a>
             </div>
           ) : (
-            <div className="rounded-xl border border-brand-500/30 bg-brand-500/10 p-4 text-sm text-brand-400">
-              {t('auth.resetLinkSent')}
+            <div className="space-y-3 rounded-xl border border-brand-500/30 bg-brand-500/10 p-4 text-sm text-brand-400">
+              <p>{t('auth.resetLinkSent')}</p>
+              <Link
+                to="/reset-password"
+                className="block rounded-lg bg-brand-500 py-2.5 text-center font-bold text-night-950 hover:bg-brand-400"
+              >
+                {t('auth.enterResetCode')}
+              </Link>
             </div>
           )
         ) : (

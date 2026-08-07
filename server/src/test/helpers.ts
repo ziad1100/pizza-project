@@ -39,6 +39,7 @@ export interface UserOverrides {
   role?: string;
   isActive?: boolean;
   isVerified?: boolean;
+  avatar?: string;
   provider?: string;
   providerId?: string;
   refreshToken?: string | null;

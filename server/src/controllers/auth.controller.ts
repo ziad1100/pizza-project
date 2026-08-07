@@ -9,7 +9,7 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { clearAuthCookies, setAuthCookies, REFRESH_COOKIE_NAME } from '../utils/cookies';
 import { generateEmailCode, generateEmailToken, verifyRefreshToken } from '../utils/token';
-import { sendPasswordResetEmail, sendVerificationEmail } from '../services/email.service';
+import { sendPasswordResetOtpEmail, sendVerificationEmail } from '../services/email.service';
 import { ROLES } from '../constants';
 
 const safeUser = (u: {
@@ -126,14 +126,14 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
   const user = await User.findOne({ email });
   let devPayload: { code: string; link: string } | null = null;
   if (user) {
-    const token = smtpConfigured ? generateEmailToken() : generateEmailCode();
+    const token = generateEmailCode();
     if (!smtpConfigured) {
       devPayload = { code: token, link: `${env.clientUrl}/reset-password?token=${token}` };
     }
     user.resetToken = token;
     user.resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
-    await sendPasswordResetEmail(email, token);
+    await sendPasswordResetOtpEmail(email, token);
   }
   // Always respond the same to avoid user enumeration
   res.json(new ApiResponse(200, devPayload, 'If the email exists, a reset link was sent'));

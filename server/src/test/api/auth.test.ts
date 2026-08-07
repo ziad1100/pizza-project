@@ -214,6 +214,26 @@ describe('forgot & reset password', () => {
     expect(user?.resetToken).toBeTruthy();
   });
 
+  it('returns a 6-digit OTP code when SMTP is unconfigured', async () => {
+    await createUser({ email: 'otp@pizzahouse.test' });
+    const res = await api.post(`${AUTH}/forgot-password`).send({ email: 'otp@pizzahouse.test' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.code).toMatch(/^\d{6}$/);
+    expect(res.body.data.link).toContain('reset-password?token=');
+  });
+
+  it('resets the password via the emailed OTP code', async () => {
+    await createUser({ email: 'otpflow@pizzahouse.test' });
+    const sent = await api.post(`${AUTH}/forgot-password`).send({ email: 'otpflow@pizzahouse.test' });
+    const code = sent.body.data.code as string;
+    const reset = await api.post(`${AUTH}/reset-password`).send({ token: code, password: 'OtpChange99' });
+    expect(reset.status).toBe(200);
+    const login = await api
+      .post(`${AUTH}/login`)
+      .send({ email: 'otpflow@pizzahouse.test', password: 'OtpChange99' });
+    expect(login.status).toBe(200);
+  });
+
   it('resets the password and allows login with the new one', async () => {
     await createUser({ email: 'resetme@pizzahouse.test', resetToken: 'reset-token-123', resetTokenExpires: new Date(Date.now() + 3600_000) });
     const res = await api

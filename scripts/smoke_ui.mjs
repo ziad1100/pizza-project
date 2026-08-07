@@ -126,7 +126,7 @@ try {
   check('reset-password succeeds with dev code', resetOk, '');
 
   await goto(page, `${BASE}/reset-password`);
-  check('reset-password without token shows invalid link', await waitText(page, /invalid or expired|غير صالح أو منتهي الصلاحية/), '');
+  check('reset-password without token shows OTP entry', await waitText(page, /Enter the reset code|أدخل كود إعادة التعيين/), '');
 
   await goto(page, `${BASE}/verify-email?token=definitely-bad-token`);
   check('verify-email with bad token shows failure', await waitText(page, /invalid or expired|غير صالح أو منتهي الصلاحية/, 30000), '');
