@@ -1,0 +1,53 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import multer from 'multer';
+import env from '../config/env';
+import { cloudinaryConfigured } from '../config/cloudinary';
+import { ApiError } from '../utils/ApiError';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const uploadsDir = path.resolve(__dirname, '../uploads');
+fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+  },
+});
+
+const fileFilter = (_req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+  if (allowed.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new ApiError(400, 'Only image files are allowed'));
+  }
+};
+
+export const uploadSingle = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter,
+}).single('image');
+
+export const uploadMultiple = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter,
+}).array('images', 10);
+
+export const deleteLocalFile = (filePath: string): void => {
+  const full = filePath.startsWith('/') ? filePath : path.join(uploadsDir, filePath);
+  if (fs.existsSync(full)) {
+    fs.unlinkSync(full);
+  }
+};
+
+export const localFileUrl = (fileName: string): string => {
+  return `${env.isProd ? env.clientUrl : `http://localhost:${env.port}`}/uploads/${fileName}`;
+};
+
+export const isCloudinaryActive = cloudinaryConfigured;

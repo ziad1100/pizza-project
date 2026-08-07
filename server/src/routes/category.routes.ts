@@ -1,0 +1,19 @@
+import { Router } from 'express';
+import * as category from '../controllers/category.controller';
+import { requireAuth, requirePermission } from '../middlewares/auth';
+import { logActivity } from '../middlewares/activityLogger';
+
+const router = Router();
+
+router.get('/tree', category.tree);
+router.get('/', category.list);
+router.get('/:id', category.getById);
+
+router.use(requireAuth);
+
+router.post('/', requirePermission('categories', 'create'), logActivity('create', 'categories'), category.create);
+router.patch('/:id', requirePermission('categories', 'update'), logActivity('update', 'categories'), category.update);
+router.patch('/:id/toggle', requirePermission('categories', 'hide'), category.toggle);
+router.delete('/:id', requirePermission('categories', 'delete'), logActivity('delete', 'categories'), category.remove);
+
+export default router;
