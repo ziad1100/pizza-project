@@ -21,10 +21,11 @@ export function OrdersPage() {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
 
-  const { data: orders, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['orders', 'mine'],
-    queryFn: getMyOrders,
+    queryFn: () => getMyOrders(),
   });
+  const orders = data?.items ?? [];
 
   const cancelMutation = useMutation({
     mutationFn: cancelOrder,

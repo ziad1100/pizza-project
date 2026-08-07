@@ -75,6 +75,7 @@ const orderSchema = new Schema(
 );
 
 orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ user: 1, createdAt: -1 });
 
 export type IOrder = mongoose.InferSchemaType<typeof orderSchema> & {
   _id: mongoose.Types.ObjectId;

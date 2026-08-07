@@ -166,8 +166,15 @@ export const updateStatus = asyncHandler(async (req: AuthRequest, res: Response)
 });
 
 export const history = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const orders = await Order.find({ user: req.user!.id }).sort('-createdAt').lean();
-  res.json(new ApiResponse(200, orders));
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+  const skip = (page - 1) * limit;
+  const filter = { user: req.user!.id };
+  const [items, total] = await Promise.all([
+    Order.find(filter).sort('-createdAt').skip(skip).limit(limit).lean(),
+    Order.countDocuments(filter),
+  ]);
+  res.json(new ApiResponse(200, { items, total, page, pages: Math.max(1, Math.ceil(total / limit)), limit }));
 });
 
 export const adminList = asyncHandler(async (req: Request, res: Response) => {

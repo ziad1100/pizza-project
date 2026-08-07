@@ -18,6 +18,7 @@ const categorySchema = new Schema(
 );
 
 categorySchema.index({ parentId: 1, order: 1 });
+categorySchema.index({ isActive: 1, order: 1 });
 
 export type ICategory = mongoose.InferSchemaType<typeof categorySchema> & {
   _id: mongoose.Types.ObjectId;

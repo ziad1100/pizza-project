@@ -77,7 +77,7 @@ const probes = (ctx: Ctx): QueryProbe[] => [
   },
   {
     name: 'reviews by product',
-    run: () => explain('reviews:byProduct', Review.find({ product: ctx.productId }).sort({ createdAt: -1 })),
+    run: () => explain('reviews:byProduct', Review.find({ product: ctx.productId, isApproved: true }).sort({ createdAt: -1 })),
   },
   {
     name: 'categories active',
@@ -92,6 +92,7 @@ const main = async (): Promise<void> => {
   const product = await Product.findOne().lean();
   const category = product ? await Category.findById(product.category).lean() : null;
   const user = await mongoose.connection.db?.collection('users').findOne({});
+  await Promise.all([Product.createIndexes(), Category.createIndexes(), Order.createIndexes(), Review.createIndexes()]);
   const ctx: Ctx = {
     categoryId: category?._id?.toString() ?? (await Category.findOne().lean())?._id?.toString() ?? '000000000000000000000000',
     slug: product?.slug ?? '',

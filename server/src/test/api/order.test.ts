@@ -247,7 +247,8 @@ describe('history & stats', () => {
     await api.post(ORDERS).set(bearer(toId(bob._id))).send(orderBody(toId(product._id)));
     const res = await api.get(`${ORDERS}/history`).set(bearer(toId(alice._id)));
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data.items).toHaveLength(1);
+    expect(res.body.data.total).toBe(1);
     const dbCount = await Order.countDocuments({ user: alice._id });
     expect(dbCount).toBe(1);
   });

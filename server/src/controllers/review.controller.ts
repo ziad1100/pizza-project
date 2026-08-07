@@ -8,11 +8,20 @@ import { asyncHandler } from '../utils/asyncHandler';
 import type { AuthRequest } from '../middlewares/auth';
 
 export const listByProduct = asyncHandler(async (req: Request, res: Response) => {
-  const reviews = await Review.find({ product: req.params.productId })
-    .populate('user', 'fullName avatar')
-    .sort('-createdAt')
-    .lean();
-  res.json(new ApiResponse(200, reviews));
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+  const skip = (page - 1) * limit;
+  const filter = { product: req.params.productId, isApproved: true };
+  const [items, total] = await Promise.all([
+    Review.find(filter)
+      .populate('user', 'fullName avatar')
+      .sort('-createdAt')
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Review.countDocuments(filter),
+  ]);
+  res.json(new ApiResponse(200, { items, total, page, pages: Math.max(1, Math.ceil(total / limit)), limit }));
 });
 
 export const adminList = asyncHandler(async (req: Request, res: Response) => {

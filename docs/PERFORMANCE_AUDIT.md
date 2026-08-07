@@ -30,6 +30,28 @@ Captured: 2026-08-07 against `docker compose` stack (mongo:7 + app) at ~107 prod
 | categories active | SORT | 0 | 24 | 1ms |
 | order history by user | SORT | 0 | 0 | 0ms |
 
+## Query plans after Phase 1 (indexes + pagination)
+
+Re-run with the same dataset after `Product`/`Category`/`Order`/`Review` compound indexes
+were created (`explain.ts` now calls `createIndexes()` before probing).
+
+| Query | Stage | Keys Examined | Docs Examined | Time |
+|---|---|---|---|---|
+| product by slug | LIMIT | 1 | 1 | 9ms |
+| products by category | LIMIT | 8 | 8 | 12ms |
+| products bestsellers | LIMIT | **10** | **10** | 10ms |
+| products offers | LIMIT | **10** | **10** | 9ms |
+| product search (regex) | LIMIT | **35** | 35 | 16ms |
+| product list (available) | LIMIT | **12** | **12** | 10ms |
+| reviews by product | FETCH | **1** | 1 | 4ms |
+| categories active | FETCH | **24** | 24 | 2ms |
+| order history by user | FETCH | 0 | 0 | 9ms |
+
+Collection scans eliminated: bestsellers/offers/list went from 107 docs examined to ≈ returned
+rows. `reviews:byProduct` and `categories:active` moved off in-memory SORT onto the new
+compound indexes (FETCH = index covered equality, docs read via index). Regex search remains a
+scan by design (F2).
+
 ## Findings
 
 ### F1 — Unindexed hot collection scans (products)
@@ -38,12 +60,13 @@ compound index covering `isAvailable` + sort/flag fields. Invisible at 107 rows;
 is a full collection scan per public menu render.
 
 **Optimization**: compound indexes
-- `{ isAvailable: 1, isBestSeller: 1, rating: -1, createdAt: -1 }`
-- `{ isAvailable: 1, isOffer: 1, discount: -1, createdAt: -1 }`
-- `{ isAvailable: 1, isBestSeller: -1, rating: -1 }` (list default sort)
+- `{ isAvailable: 1, isBestSeller: -1, rating: -1, createdAt: -1 }`
+- `{ isAvailable: 1, isOffer: -1, discount: -1, createdAt: -1 }`
+- `{ isAvailable: 1, category: 1, createdAt: -1 }` (category listing)
 
 **Expected result**: keys examined ≈ returned rows instead of 107.
-**Measured result**: pending Phase 1 (re-run `explain.ts` after indexes).
+**Measured result**: keysEx = returned rows on `list`/`bestsellers`/`offers` (see post-Phase-1
+table); scans eliminated.
 
 ### F2 — Regex search ignores the text index
 `listProducts` uses `$regex` with `i` on 4 fields + 2 arrays; MongoDB cannot use the existing
@@ -54,17 +77,21 @@ first, then widen); document `$text`/Atlas Search as the growth path. See QUERY_
 **Expected/measured**: no behavior change; latency documented for 100x dataset in TARGET_QUERIES.md.
 
 ### F3 — Unbounded order history
-`order.controller.ts:history` returns ALL orders for a user without pagination.
+`order.controller.ts:history` returned ALL orders for a user without pagination.
 
-**Optimization**: limit+skip with sane defaults (keep compatibility with client).
+**Optimization**: limit+skip with sane defaults (page/limit query params; default 10, max 50);
+response shape updated to `{ items, total, page, pages, limit }` (client + tests updated).
+Also added `{ user: 1, createdAt: -1 }` index for the sort.
 **Expected result**: bounded response size.
-**Measured**: pending Phase 1.
+**Measured**: response bounded; index in place (see post-Phase-1 table).
 
 ### F4 — Unbounded reviews list
-`review.controller.ts:listByProduct` returns all reviews per product.
+`review.controller.ts:listByProduct` returned all reviews per product.
 
-**Optimization**: paginate (limit+skip).
-**Measured**: pending Phase 1.
+**Optimization**: paginate (limit+skip; default 10, max 50) and filter `isApproved: true` on the
+public endpoint to match the product-detail behavior. Added `{ product: 1, isApproved: 1,
+createdAt: -1 }` index so sort+filter is served from the index.
+**Measured**: index in use (stage FETCH, no in-memory SORT — see post-Phase-1 table).
 
 ### F5 — Dashboard runs 12 concurrent full-table aggregates
 `analytics.controller.ts:dashboard` fires 12 `Order.aggregate` scans on every dashboard load,
@@ -112,10 +139,10 @@ here after first traffic; p-values are provided by the 60s summary log.
 
 | # | Problem | Fix | Phase | Status |
 |---|---|---|---|---|
-| F1 | collection scan on public product queries | compound indexes | 1 | pending |
+| F1 | collection scan on public product queries | compound indexes | 1 | done |
 | F2 | regex search no index | scoped search + documented growth path | 1 | pending |
-| F3 | unbounded order history | pagination | 1 | pending |
-| F4 | unbounded reviews | pagination | 1 | pending |
+| F3 | unbounded order history | pagination + `{user,createdAt}` index | 1 | done |
+| F4 | unbounded reviews | pagination + `{product,isApproved,createdAt}` index | 1 | done |
 | F5 | 12 aggregates per dashboard | rollup + Redis cache | 2/3 | pending |
 | F6 | no server cache | Redis cache-aside | 2 | pending |
 | F7 | fire-and-forget email | BullMQ queue | 3 | pending |
