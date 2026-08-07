@@ -166,7 +166,17 @@ Documented inline in `server/.env.example` (including a production checklist). K
 
 ---
 
-## 7. Docker deployment
+## 7. Backup & resilience
+
+- **Git**: repo initialized, remote `origin` → `https://github.com/ziad1100/pizza-project.git` (private, `main`). Secrets and data dirs excluded via `.gitignore` (`.env`, `server/.env`, `server/.data/`, `server/uploads/`, `backups/`); secrets mirrored to `backups/secrets/` (git-ignored).
+- **DB backups**: `npm run backup:db` → `mongodump --archive --gzip` inside the mongo container → `C:\Users\<you>\OneDrive\PizzaBackups\db\pizza-<stamp>.gz` (auto-synced to the cloud); legacy `server/.data/db` copied into the same set. `npm run restore:db [file] [--drop]` restores (verified 182 docs).
+- **One command**: `npm run backup` = DB dump + data copy + `git commit` + `git push origin main` (`scripts/backup.mjs`).
+- **Automation**: Windows scheduled task `ORABIBackup` runs `scripts/backup.ps1` daily at 03:00 (log → `OneDrive\PizzaBackups\backup.log`).
+- Full runbook: `BACKUP.md`.
+
+---
+
+## 8. Docker deployment
 
 - **Dockerfile**: multi-stage — `node:22-alpine` build stage (`npm ci` → client + server builds → `npm prune --omit=dev`) then slim runtime stage running `node server/dist/server.js` as the `node` user with chowned `/app/server/dist/uploads`
 - **docker-compose.yml**: `mongo:7` service (healthchecked, named volume) + `app` (builds the image, `5000:5000`, env pass-through from host `.env`, uploads volume)
