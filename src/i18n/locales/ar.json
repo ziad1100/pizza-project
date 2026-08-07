@@ -346,8 +346,14 @@
       "users": "المستخدمون",
       "reviews": "التقييمات",
       "customers": "العملاء",
-      "recentRevenue": "الإيرادات (٣٠ يومًا)"
+      "recentRevenue": "الإيرادات (٣٠ يومًا)",
+      "today": "اليوم",
+      "thisWeek": "هذا الأسبوع",
+      "thisMonth": "هذا الشهر",
+      "productsSold": "المنتجات المباعة"
     },
+    "periodTitle": "تحليل الفترة",
+    "unitsTrend": "الوحدات المباعة — آخر {{days}} يوم",
     "statusTitle": "الطلبات حسب الحالة",
     "topProducts": "الأكثر مبيعًا",
     "last7Days": "الإيرادات — آخر ٧ أيام",

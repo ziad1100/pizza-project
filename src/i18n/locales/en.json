@@ -346,8 +346,14 @@
       "users": "Users",
       "reviews": "Reviews",
       "customers": "Customers",
-      "recentRevenue": "Revenue (30 days)"
+      "recentRevenue": "Revenue (30 days)",
+      "today": "Today",
+      "thisWeek": "This week",
+      "thisMonth": "This month",
+      "productsSold": "Products sold"
     },
+    "periodTitle": "Period breakdown",
+    "unitsTrend": "Units sold — last {{days}} days",
     "statusTitle": "Orders by status",
     "topProducts": "Top products",
     "last7Days": "Revenue — last 7 days",

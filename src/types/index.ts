@@ -274,6 +274,14 @@ export interface Banner {
   isActive: boolean;
 }
 
+export interface PeriodMetrics {
+  revenue: number;
+  orders: number;
+  unitsSold: number;
+  customers: number;
+  topProducts: { _id: string; name: string; count: number; revenue: number }[];
+}
+
 export interface DashboardData {
   revenue: number;
   orders: number;
@@ -285,6 +293,8 @@ export interface DashboardData {
   recentOrders: number;
   recentCustomers: number;
   revenueTrend: { date: string; revenue: number; orders: number }[];
+  dailyStats: { date: string; revenue: number; orders: number; unitsSold: number }[];
+  periodOverview: { today: PeriodMetrics; week: PeriodMetrics; month: PeriodMetrics };
   statusBreakdown: { status: string; count: number }[];
   topProducts: { _id: string; name: string; count: number; revenue: number }[];
 }
