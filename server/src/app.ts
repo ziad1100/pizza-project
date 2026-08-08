@@ -8,8 +8,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
-import mongoSanitize from 'express-mongo-sanitize';
 import { corsOptions } from './config/cors';
+import { sanitizeJson } from './middlewares/sanitize';
 import { notFound } from './middlewares/notFound';
 import { errorHandler } from './middlewares/errorHandler';
 import { uploadsDir } from './middlewares/upload';
@@ -48,7 +48,7 @@ app.use(cookieParser());
 
 app.use('/uploads', express.static(uploadsDir));
 
-app.use(mongoSanitize());
+app.use(sanitizeJson);
 
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));

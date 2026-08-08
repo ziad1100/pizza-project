@@ -3,7 +3,8 @@ import type { ZodType } from 'zod';
 import { z, ZodError } from 'zod';
 import { ApiError } from '../utils/ApiError';
 
-export const objectId = (message = 'Invalid id') => z.string().regex(/^[0-9a-fA-F]{24}$/, message);
+export const objectId = (message = 'Invalid id') =>
+  z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, message);
 
 export const zodBody =
   <T>(schema: ZodType<T>): RequestHandler =>

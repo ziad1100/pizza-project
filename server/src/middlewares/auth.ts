@@ -1,7 +1,6 @@
 import type { Request, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
-import User from '../models/User';
-import Role from '../models/Role';
+import * as usersRepo from '../db/users';
 import { ApiError } from '../utils/ApiError';
 import { verifyAccessToken } from '../utils/token';
 
@@ -27,15 +26,16 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
     } catch {
       throw new ApiError(401, 'Invalid or expired token');
     }
-    const user = await User.findById(payload.sub).select('+password').lean();
+    if (!payload.sub) throw new ApiError(401, 'Invalid or expired token');
+    const user = await usersRepo.getById(payload.sub);
     if (!user || !user.isActive) {
       throw new ApiError(401, 'Account not found or deactivated');
     }
-    const role = await Role.findOne({ slug: user.role }).lean();
+    const permissions = await usersRepo.rolePermissions(user.role);
     authReq.user = {
-      id: String(user._id),
+      id: user.id,
       role: user.role,
-      permissions: (role?.permissions as Record<string, string[]>) ?? {},
+      permissions,
     };
     next();
   } catch (err) {

@@ -1,4 +1,4 @@
-import Role from '../models/Role';
+import { query } from '../db';
 import { PERMISSION_PRESETS } from '../constants';
 
 const ROLE_DEFS = [
@@ -10,16 +10,14 @@ const ROLE_DEFS = [
 
 export const ensureRolePermissions = async (): Promise<void> => {
   for (const r of ROLE_DEFS) {
-    await Role.updateOne(
-      { slug: r.slug },
-      {
-        $set: {
-          name: r.name,
-          description: r.description,
-          permissions: PERMISSION_PRESETS[r.slug as keyof typeof PERMISSION_PRESETS],
-        },
-      },
-      { upsert: true },
+    await query(
+      `INSERT INTO roles (name, slug, description, permissions)
+       VALUES ($1, $2::user_role, $3, $4)
+       ON CONFLICT (slug) DO UPDATE SET
+         name = EXCLUDED.name,
+         description = EXCLUDED.description,
+         permissions = EXCLUDED.permissions`,
+      [r.name, r.slug, r.description, PERMISSION_PRESETS[r.slug as keyof typeof PERMISSION_PRESETS]],
     );
   }
   console.log('[roles] permissions synced from presets');

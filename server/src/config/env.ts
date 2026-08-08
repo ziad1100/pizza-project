@@ -13,6 +13,12 @@ const env = {
 
   mongoUri: process.env.MONGO_URI || '',
 
+  databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  supabaseUrl: process.env.SUPABASE_URL || 'http://127.0.0.1:54321',
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+  pgMaxPoolSize: Number(process.env.PG_MAX_POOL_SIZE) || 20,
+
   redisUrl: process.env.REDIS_URL || '',
 
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_me',

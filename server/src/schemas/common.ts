@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-export const objectId = (message = 'Invalid id format') => z.string().regex(/^[0-9a-fA-F]{24}$/, message);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export const objectId = (message = 'Invalid id format') => z.string().regex(UUID_RE, message);
 
 export const nonNegative = (message = 'Must be a positive number') => z.coerce.number().min(0, message);
 

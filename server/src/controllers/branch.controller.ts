@@ -1,32 +1,43 @@
 import type { Request, Response } from 'express';
-import Branch from '../models/Branch';
+import * as branchesRepo from '../db/branches';
+import { apiErrorFromPg } from '../db';
 import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 
 export const list = asyncHandler(async (_req: Request, res: Response) => {
-  const branches = await Branch.find({ isActive: true }).sort('createdAt').lean();
-  res.json(new ApiResponse(200, branches));
+  res.json(new ApiResponse(200, await branchesRepo.list(true)));
 });
 
 export const listAll = asyncHandler(async (_req: Request, res: Response) => {
-  const branches = await Branch.find().sort('createdAt').lean();
-  res.json(new ApiResponse(200, branches));
+  res.json(new ApiResponse(200, await branchesRepo.list(false)));
 });
 
 export const create = asyncHandler(async (req: Request, res: Response) => {
-  const branch = await Branch.create(req.body);
-  res.status(201).json(new ApiResponse(201, branch, 'Branch created'));
+  try {
+    const branch = await branchesRepo.create(req.body as Record<string, unknown>);
+    if (!branch) throw new ApiError(500, 'Branch creation failed');
+    res.status(201).json(new ApiResponse(201, branch, 'Branch created'));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
-  const branch = await Branch.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true }).lean();
-  if (!branch) throw new ApiError(404, 'Branch not found');
-  res.json(new ApiResponse(200, branch, 'Branch updated'));
+  try {
+    const branch = await branchesRepo.update(req.params.id, req.body as Record<string, unknown>);
+    if (!branch) throw new ApiError(404, 'Branch not found');
+    res.json(new ApiResponse(200, branch, 'Branch updated'));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
 });
 
 export const remove = asyncHandler(async (req: Request, res: Response) => {
-  const branch = await Branch.findByIdAndDelete(req.params.id);
-  if (!branch) throw new ApiError(404, 'Branch not found');
-  res.json(new ApiResponse(200, null, 'Branch deleted'));
+  try {
+    if (!(await branchesRepo.remove(req.params.id))) throw new ApiError(404, 'Branch not found');
+    res.json(new ApiResponse(200, null, 'Branch deleted'));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
 });

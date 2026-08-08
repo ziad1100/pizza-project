@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import User from '../models/User';
-import Role from '../models/Role';
+import * as usersRepo from '../db/users';
+import { apiErrorFromPg } from '../db';
 import env from '../config/env';
 import { smtpConfigured } from '../config/mailer';
 import { ApiError } from '../utils/ApiError';
@@ -12,38 +12,27 @@ import { generateEmailCode, generateEmailToken, verifyRefreshToken } from '../ut
 import { sendPasswordResetOtpEmail, sendVerificationEmail } from '../services/email.service';
 import { ROLES } from '../constants';
 
-const safeUser = (u: {
-  _id: unknown;
-  fullName: string;
-  email: string;
-  phone: string;
-  role: string;
-  avatar: string;
-  isVerified: boolean;
-  addresses: unknown[];
-  provider: string;
-}) => ({
-  id: String(u._id),
-  fullName: u.fullName,
-  email: u.email,
-  phone: u.phone,
-  role: u.role,
-  avatar: u.avatar,
-  isVerified: u.isVerified,
-  addresses: u.addresses,
-  provider: u.provider,
-});
-
-const getUserWithRole = async (id: string) => {
-  const user = await User.findById(id).lean();
+export const getUserWithRole = async (id: string) => {
+  const user = await usersRepo.getById(id);
   if (!user) throw new ApiError(404, 'User not found');
-  const role = await Role.findOne({ slug: user.role }).lean();
-  return { ...safeUser(user), permissions: (role?.permissions ?? {}) as Record<string, string[]> };
+  const permissions = await usersRepo.rolePermissions(user.role);
+  return {
+    id: user.id,
+    fullName: user.fullName,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    avatar: user.avatar,
+    isVerified: user.isVerified,
+    addresses: user.addresses,
+    provider: user.provider,
+    permissions,
+  };
 };
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
   const { fullName, email, phone, password, role = ROLES.CUSTOMER, adminCode } = req.body;
-  const exists = await User.findOne({ email });
+  const exists = await usersRepo.getByEmail(email);
   if (exists) throw new ApiError(409, 'Email already registered');
 
   if (role === ROLES.ADMIN) {
@@ -54,33 +43,57 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
   const hashed = await bcrypt.hash(password, 10);
   const emailVerifyToken = generateEmailToken();
-  const user = await User.create({
-    fullName,
-    email,
-    phone,
-    role,
-    password: hashed,
-    emailVerifyToken,
-    emailVerifyExpires: new Date(Date.now() + 24 * 3600 * 1000),
-    provider: 'local',
-  });
+  let user;
+  try {
+    user = await usersRepo.create({
+      fullName,
+      email,
+      phone,
+      role,
+      passwordHash: hashed,
+      emailVerifyToken,
+      emailVerifyExpires: new Date(Date.now() + 24 * 3600 * 1000),
+      provider: 'local',
+    });
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
 
   await sendVerificationEmail(email, emailVerifyToken);
 
-  const { accessToken } = setAuthCookies(res, String(user._id));
-  res.status(201).json(new ApiResponse(201, { user: safeUser(user), accessToken }, 'Registered successfully'));
+  const { accessToken } = setAuthCookies(res, user.id);
+  res.status(201).json(
+    new ApiResponse(
+      201,
+      {
+        user: {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          avatar: user.avatar,
+          isVerified: user.isVerified,
+          addresses: user.addresses,
+          provider: user.provider,
+        },
+        accessToken,
+      },
+      'Registered successfully',
+    ),
+  );
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
-  const user = await User.findOne({ email }).select('+password');
+  const user = await usersRepo.getByEmail(email);
   if (!user) throw new ApiError(401, 'Invalid email or password');
-  const ok = await bcrypt.compare(password, user.password ?? '');
+  const ok = await bcrypt.compare(password, user.passwordHash ?? '');
   if (!ok) throw new ApiError(401, 'Invalid email or password');
   if (!user.isActive) throw new ApiError(403, 'Account is deactivated');
 
-  const { accessToken } = setAuthCookies(res, String(user._id));
-  res.json(new ApiResponse(200, { user: await getUserWithRole(String(user._id)), accessToken }, 'Logged in'));
+  const { accessToken } = setAuthCookies(res, user.id);
+  res.json(new ApiResponse(200, { user: await getUserWithRole(user.id), accessToken }, 'Logged in'));
 });
 
 export const logout = asyncHandler(async (_req: Request, res: Response) => {
@@ -97,42 +110,41 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
   } catch {
     throw new ApiError(401, 'Invalid refresh token');
   }
-  const user = await User.findById(payload.sub).select('+refreshToken');
+  const user = await usersRepo.getById(payload.sub);
   if (!user || !user.isActive) throw new ApiError(401, 'Account not found');
   if (user.refreshToken && user.refreshToken !== token) {
     // token reuse detected — force re-login
     clearAuthCookies(res);
     throw new ApiError(401, 'Refresh token reused — please login again');
   }
-  const { accessToken, refreshToken } = setAuthCookies(res, String(user._id));
-  await User.updateOne({ _id: user._id }, { refreshToken });
+  const { accessToken, refreshToken } = setAuthCookies(res, user.id);
+  await usersRepo.update(user.id, { refreshToken });
   res.json(new ApiResponse(200, { accessToken }, 'Token refreshed'));
 });
 
 export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
   const { token } = req.query as { token: string };
-  const user = await User.findOne({ emailVerifyToken: token }).select('+emailVerifyToken +emailVerifyExpires');
+  const user = await usersRepo.getByVerifyToken(token);
   if (!user || !user.emailVerifyExpires || user.emailVerifyExpires < new Date()) {
     throw new ApiError(400, 'Invalid or expired verification token');
   }
-  user.isVerified = true;
-  user.emailVerifyToken = null;
-  await user.save();
+  await usersRepo.update(user.id, { isVerified: true, emailVerifyToken: null, emailVerifyExpires: null });
   res.json(new ApiResponse(200, null, 'Email verified'));
 });
 
 export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email } = req.body;
-  const user = await User.findOne({ email });
+  const user = await usersRepo.getByEmail(email);
   let devPayload: { code: string; link: string } | null = null;
   if (user) {
     const token = generateEmailCode();
     if (!smtpConfigured) {
       devPayload = { code: token, link: `${env.clientUrl}/reset-password?token=${token}` };
     }
-    user.resetToken = token;
-    user.resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
-    await user.save();
+    await usersRepo.update(user.id, {
+      resetToken: token,
+      resetTokenExpires: new Date(Date.now() + 15 * 60 * 1000),
+    });
     await sendPasswordResetOtpEmail(email, token);
   }
   // Always respond the same to avoid user enumeration
@@ -141,25 +153,24 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
 
 export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
   const { token, password } = req.body;
-  const user = await User.findOne({ resetToken: token }).select('+resetToken +resetTokenExpires');
+  const user = await usersRepo.getByResetToken(token);
   if (!user || !user.resetTokenExpires || user.resetTokenExpires < new Date()) {
     throw new ApiError(400, 'Invalid or expired reset token');
   }
-  user.password = await bcrypt.hash(password, 10);
-  user.resetToken = null;
-  user.resetTokenExpires = undefined;
-  await user.save();
+  const passwordHash = await bcrypt.hash(password, 10);
+  await usersRepo.update(user.id, { passwordHash, resetToken: null, resetTokenExpires: null });
   res.json(new ApiResponse(200, null, 'Password reset successfully'));
 });
 
 export const changePassword = asyncHandler(async (req: Request, res: Response) => {
   const { currentPassword, newPassword } = req.body;
-  const user = await User.findById((req as { user?: { id: string } }).user?.id).select('+password');
+  const id = (req as { user?: { id: string } }).user?.id;
+  const user = await usersRepo.getById(id ?? '');
   if (!user) throw new ApiError(404, 'User not found');
-  const ok = await bcrypt.compare(currentPassword, user.password ?? '');
+  const ok = await bcrypt.compare(currentPassword, user.passwordHash ?? '');
   if (!ok) throw new ApiError(400, 'Current password is incorrect');
-  user.password = await bcrypt.hash(newPassword, 10);
-  await user.save();
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await usersRepo.update(user.id, { passwordHash });
   res.json(new ApiResponse(200, null, 'Password changed'));
 });
 
@@ -172,26 +183,29 @@ export const socialAuthCallback = (provider: 'google' | 'facebook') =>
   asyncHandler(async (req: Request, res: Response) => {
     const profile = req.user as { id: string; displayName: string; emails?: { value: string }[]; photos?: { value: string }[] };
     const email = profile.emails?.[0]?.value ?? `${profile.id}@${provider}.local`;
-    let user = await User.findOne({ email });
+    let user = await usersRepo.getByEmail(email);
     if (user) {
       if (!user.isActive) {
         return res.redirect(`${env.clientUrl}/login?error=deactivated`);
       }
-      user.provider = provider;
-      user.providerId = profile.id;
-      if (!user.avatar && profile.photos?.[0]?.value) user.avatar = profile.photos[0].value;
-      await user.save();
+      const sets: Record<string, unknown> = { provider, providerId: profile.id };
+      if (!user.avatar && profile.photos?.[0]?.value) sets.avatar = profile.photos[0].value;
+      await usersRepo.update(user.id, sets);
     } else {
-      user = await User.create({
-        fullName: profile.displayName,
-        email,
-        provider,
-        providerId: profile.id,
-        avatar: profile.photos?.[0]?.value ?? '',
-        isVerified: true,
-      });
+      try {
+        user = await usersRepo.create({
+          fullName: profile.displayName,
+          email,
+          provider,
+          providerId: profile.id,
+          avatar: profile.photos?.[0]?.value ?? '',
+          isVerified: true,
+        });
+      } catch (err) {
+        throw apiErrorFromPg(err);
+      }
     }
-    const { accessToken } = setAuthCookies(res, String(user._id));
+    const { accessToken } = setAuthCookies(res, user.id);
     const redirect = `${env.clientUrl}/auth/callback#accessToken=${accessToken}`;
     res.redirect(redirect);
   });

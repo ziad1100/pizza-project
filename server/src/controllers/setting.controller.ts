@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
-import { getSettingsMap, upsertSetting } from '../models/Setting';
+import { getSettingsMap, upsertSetting } from '../db/settings';
+import { apiErrorFromPg } from '../db';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -12,8 +13,12 @@ export const getAdmin = asyncHandler(async (_req: Request, res: Response) => {
 });
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
-  for (const [key, value] of Object.entries(req.body)) {
-    if (value !== undefined) await upsertSetting(key, value);
+  try {
+    for (const [key, value] of Object.entries(req.body)) {
+      if (value !== undefined) await upsertSetting(key, value);
+    }
+    res.json(new ApiResponse(200, await getSettingsMap(), 'Settings updated'));
+  } catch (err) {
+    throw apiErrorFromPg(err);
   }
-  res.json(new ApiResponse(200, await getSettingsMap(), 'Settings updated'));
 });
