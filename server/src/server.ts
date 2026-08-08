@@ -3,6 +3,7 @@ import env from './config/env';
 import { connectDB, disconnectDB } from './database/connection';
 import { ensureRolePermissions } from './database/roleSync';
 import { perfSummaryTimer, reportLatencies } from './middlewares/diagnostics';
+import { disconnectCache } from './services/cache';
 
 const start = async (): Promise<void> => {
   try {
@@ -19,6 +20,7 @@ const start = async (): Promise<void> => {
       console.log(`[server] ${signal} received, shutting down...`);
       console.log(reportLatencies());
       server.close(async () => {
+        await disconnectCache();
         await disconnectDB();
         process.exit(0);
       });

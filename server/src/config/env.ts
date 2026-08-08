@@ -13,6 +13,8 @@ const env = {
 
   mongoUri: process.env.MONGO_URI || '',
 
+  redisUrl: process.env.REDIS_URL || '',
+
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_me',
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_change_me',
   accessTokenExpires: process.env.ACCESS_TOKEN_EXPIRES || '15m',

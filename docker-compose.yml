@@ -12,18 +12,34 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     restart: unless-stopped
     depends_on:
       mongo:
         condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       - '5000:5000'
     environment:
       NODE_ENV: production
       PORT: 5000
       MONGO_URI: mongodb://mongo:27017/pizza
+      REDIS_URL: redis://redis:6379
       CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_access}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh}
@@ -49,3 +65,4 @@ services:
 volumes:
   mongo-data:
   uploads-data:
+  redis-data:
