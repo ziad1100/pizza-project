@@ -1,1 +1,93 @@
-# pizza-project
+# ORABI Restaurant (a.k.a. PizzaProject)
+
+Full-stack restaurant platform (مطعم عرابي) — an RTL-first bilingual (Arabic/English)
+storefront, a customer dashboard, and an admin panel, backed by an Express REST API on
+PostgreSQL (Supabase) with Redis caching, BullMQ queues, role-based access control, and a
+hardened security posture.
+
+> Detailed documentation: **[PROJECT.md](./PROJECT.md)** (architecture, DB, seeding),
+> **[BACKUP.md](./BACKUP.md)** (backups & restore), **[docs/](./docs/)** (security audit,
+> auth, RLS policies, threat model, operations, load tests).
+
+## Stack
+
+- **Client**: React 19, Vite 8, TypeScript, Tailwind CSS v4, Redux Toolkit, TanStack Query v5,
+  react-hook-form + zod, i18next (ar/en, RTL), react-router v8, sonner, swiper, framer-motion
+- **Server**: Express, TypeScript, PostgreSQL (`pg` + Supabase), Redis (ioredis) + BullMQ,
+  zod, helmet, express-rate-limit, multer, nodemailer, Passport (Google/Facebook), JWT
+- **Monorepo**: npm workspaces (root + `server`), single root `npm install`
+
+## Quickstart (dev)
+
+1. **Install** — Node 24+, then:
+
+   ```sh
+   npm ci
+   ```
+
+2. **Database** — PostgreSQL is required (`DATABASE_URL`). Easiest local dev DB:
+
+   ```sh
+   supabase start        # local dev Postgres (or any PG via DATABASE_URL)
+   # then use the DB URL from `supabase status` as DATABASE_URL
+   ```
+
+3. **Configure the server** — no defaults are allowed:
+
+   ```sh
+   cd server
+   cp .env.example .env    # fill in DATABASE_URL + JWT_ACCESS_SECRET + JWT_REFRESH_SECRET
+   ```
+
+   JWT secrets must be ≥ 32 chars:
+   `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+
+4. **Run** (from repo root):
+
+   ```sh
+   npm run seed        # destructive reseed: roles, 68-item ORABI menu, demo users
+   npm run dev:all     # Vite client (:5173) + API server (:5000)
+   ```
+
+   Demo users (password `Pizza123!`): `admin@pizzahouse.dev`, `manager@pizzahouse.dev`,
+   `employee@pizzahouse.dev`, `customer@pizzahouse.dev`.
+
+## Verify
+
+```sh
+npm test              # Vitest + Supertest: unit + API integration (run 175 tests / 21 files)
+npm run lint          # ESLint
+npm run build         # client: tsc -b + vite build → dist/
+npm run build:server  # server: tsc --noEmit + esbuild → server/dist/server.js
+npm run smoke:ui      # puppeteer end-to-end (dev servers must be running)
+```
+
+Tests run against a disposable Postgres: a `postgres:16-alpine` container on port 54329
+(autostarted), or any PG via `TEST_DATABASE_URL`.
+
+## Environment
+
+Documented inline in `server/.env.example` (including a production checklist).
+**Required**: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`. The server refuses
+to boot without them (no insecure defaults). Optional: `SUPABASE_*`, `REDIS_URL`,
+`CLOUDINARY_*`, `SMTP_*`, `GOOGLE_*`/`FACEBOOK_*`, `ADMIN_REGISTER_CODE`, rate-limit knobs.
+
+## Security
+
+Hardening across auth, orders, uploads, logging, and rate limits is implemented and
+documented — see `docs/SECURITY_AUDIT.md` for the full baseline (S1–S12) and statuses,
+plus `docs/SECURITY.md`, `docs/AUTHENTICATION.md`, `docs/ADMIN_AUTHORIZATION.md`,
+`docs/RLS_POLICIES.md`, `docs/THREAT_MODEL.md`, and the incident/secret-rotation runbooks.
+
+## Backups
+
+`npm run backup` = Postgres dump (pg_dump / Supabase CLI) + legacy Mongo dump + git commit
++ push; archives land in `OneDrive\PizzaBackups` (auto cloud-synced). Full runbook:
+**[BACKUP.md](./BACKUP.md)**.
+
+## Production
+
+- `npm run build` + `npm run build:server`, then `npm start` (serves SPA + API on `PORT`,
+  default 5000) — or `docker compose up --build`.
+- Requires PostgreSQL (Supabase), Redis for cache/queues, and real JWT/SMTP/Cloudinary/OAuth
+  config — see the production checklist in `server/.env.example`.

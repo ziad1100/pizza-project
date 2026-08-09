@@ -1,9 +1,9 @@
 # ORABI Restaurant — Full Project Documentation
 
-Full-stack fast-food restaurant platform (مطعم عرابي): an RTL-first bilingual (Arabic/English) storefront, a customer menu dashboard, an Express REST API with Mongo/Mongoose, role-based access control, email notifications, optional social login, and a containerized production build.
+Full-stack fast-food restaurant platform (مطعم عرابي): an RTL-first bilingual (Arabic/English) storefront, a customer menu dashboard, an Express REST API backed by PostgreSQL (Supabase), role-based access control, Redis caching + BullMQ queues, email notifications, optional social login, and a containerized production build.
 
 - **Client**: React 19, Vite 8, TypeScript, Tailwind CSS v4, Redux Toolkit, TanStack Query v5, react-hook-form + zod, i18next, react-router v8, sonner, swiper, framer-motion
-- **Server**: Express, Mongoose, helmet, express-rate-limit, express-validator, multer (local disk or Cloudinary), nodemailer, Passport (Google/Facebook OAuth), JWT access token + refresh cookie
+- **Server**: Express, Node-postgres (`pg` Pool) against PostgreSQL/Supabase, ioredis + BullMQ (cache & queues), zod schemas, helmet, express-rate-limit, multer (local disk or Cloudinary), nodemailer, Passport (Google/Facebook OAuth), JWT access token + refresh cookie
 - **Monorepo**: npm workspaces (root + `server` workspace), single root install
 
 ---
@@ -25,24 +25,35 @@ C:\Self Work\PizzaProject
 │  └─ types/             # shared TS types
 ├─ server/               # Express API (npm workspace)
 │  ├─ src/
-│  │  ├─ config/         # env, mailer, passport, cors, cloudinary
+│  │  ├─ config/         # env (fail-fast), mailer, passport, cors, cloudinary
 │  │  ├─ constants/      # roles, resources, permissions, order/payment enums, settings
-│  │  ├─ controllers/    # one controller per resource (19)
-│  │  ├─ database/       # connection, seed, roleSync
-│  │  ├─ middlewares/    # auth, upload, validate, rateLimit, errorHandler, activityLogger
-│  │  ├─ models/         # 21 Mongoose models
+│  │  ├─ controllers/    # one controller per resource (19) + unit tests
+│  │  ├─ database/       # connection (pg), seed, roleSync
+│  │  ├─ db/             # Postgres repositories — one module per table (21)
+│  │  ├─ jobs/           # BullMQ queue + workers definitions
+│  │  ├─ workers/        # worker entry (background jobs)
+│  │  ├─ middlewares/    # auth, upload, rateLimit, zod validate, errorHandler, sanitize, cache, diagnostics, activityLogger (+ tests)
+│  │  ├─ schemas/        # zod request/validate schemas (17)
 │  │  ├─ routes/         # 20 route modules + index
-│  │  ├─ services/       # coupon.service, email.service
-│  │  ├─ scripts/        # one-off maintenance scripts (cleanup-smoke)
+│  │  ├─ services/       # coupon.service, email.service, cache (Redis)
+│  │  ├─ emails/         # (reserved — email templates)
+│  │  ├─ socket/         # (reserved — socket.io placeholders)
+│  │  ├─ interfaces/     # TS interfaces
+│  │  ├─ types/          # TS types
+│  │  ├─ logs/           # log output (dev)
+│  │  ├─ uploads/        # local uploads dir (dev)
 │  │  ├─ test/           # Vitest + Supertest suite (setup, helpers, API tests)
 │  │  ├─ utils/          # ApiError, ApiResponse, asyncHandler, token, cookies, slugify (+ unit tests)
-│  │  └─ validators/     # express-validator rules
-│  └─ .data/db           # dev-only persistent in-memory Mongo (mongodb-memory-server)
-├─ scripts/smoke_ui.mjs  # 18-check puppeteer end-to-end smoke suite
-├─ public/               # favicon, icons sprite
-├─ dist/                 # client production build (built)
+│  │  ├─ validators/     # (legacy — empty; zod schemas supersede it)
+│  │  └─ repositories/    # (legacy — empty; `db/` supersedes it)
+│  └─ dist/               # server build (esbuild bundle)
+├─ supabase/               # Supabase local stack config + SQL migration(s)
+├─ scripts/                # backup / restore / smoke_ui
+├─ docs/                   # security & ops docs (SECURITY_AUDIT, AUTHENTICATION, RLS_POLICIES, …)
+├─ public/                 # favicon, images (menu photos), icons sprite
+├─ dist/                   # client production build (built)
 ├─ Dockerfile / .dockerignore / docker-compose.yml
-└─ README.md             # quick-start guide
+└─ README.md               # quick-start guide
 ```
 
 ---
@@ -81,38 +92,50 @@ C:\Self Work\PizzaProject
 
 ### Entry (`server/src/server.ts` → `app.ts`)
 - Helmet, same-origin-aware CORS (bypasses for same host, else `corsOptions`), compression, JSON/urlencoded parsers (10 MB), cookie-parser
-- Static `/uploads` (local uploads dir)
-- `express-mongo-sanitize`, morgan (non-test), rate limiting on `/api` (300 req / 15 min)
+- Static `/uploads` (local uploads dir), request-id + latency diagnostics middleware
+- `express-mongo-sanitize`-style sanitization (`sanitizeJson`), morgan (non-test), rate limiting on `/api` (300 req / 15 min, knobs below)
 - API under `/api/v1`
 - **Production**: serves client `dist/` with `7d immutable` caching (index.html `no-cache`) + SPA fallback for non-`/api` `/uploads` paths
 
 ### Routing (`server/src/routes/index.ts`)
 20 modules, each mapped to a resource: `auth`, `user` (account/addresses), `adminUser` (user management), `product`, `category`, `cart`, `order`, `review`, `coupon`, `offer`, `banner`, `branch`, `post`, `contact`, `newsletter`, `notification`, `setting`, `analytics`, `upload`, `wishlist`.
 
-### Models (21)
-`User`, `Role`, `Permission`, `Product`, `Category`, `Cart`, `Order`, `Review`, `Coupon`, `Offer`, `Banner`, `Branch`, `Post`, `Contact`, `Newsletter`, `Notification`, `Setting`, `DeliveryZone`, `Wishlist`, `Analytics`, `ActivityLog`.
+### Data layer — PostgreSQL
+- `pg` connection Pool (`server/src/db/index.ts`), config from `DATABASE_URL` (`PG_MAX_POOL_SIZE` knob)
+- One repository per table under `server/src/db/` (users, products, categories, cart_items, orders, … 20 modules)
+- Bootstrap connectivity probe in `server/src/database/connection.ts`; `roleSync.ts` upserts roles/permissions at boot
+- Schema managed by SQL migrations in `supabase/migrations/` (local Supabase `supabase start`, or any Postgres)
+- **Supabase**: optional `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` for RLS-managed auth/id — see `docs/RLS_POLICIES.md`
+
+### Redis + BullMQ (`server/src/services/cache.ts`, `jobs/`, `workers/`)
+- Redis via ioredis (`REDIS_URL`) — API cache layer
+- BullMQ queues + workers (`jobs/queue.ts`, `jobs/workers.ts`, `workers/index.ts`) for background jobs
+- When `REDIS_URL` is empty/unreachable the API degrades to DB-only
 
 ### RBAC
 - Roles: `admin`, `manager`, `employee`, `customer` (see `server/src/constants/index.ts`)
-- Resources (16): products, categories, orders, users, branches, offers, banners, coupons, reviews, contacts, newsletter, notifications, settings, analytics, activity, posts
+- Resources (16): products, categories, orders, users, branches, offers, banners, coupons, reviews, contacts, newsletter, settings, analytics, activity, posts (+ notifications)
 - Actions (5): create, read, update, delete, hide
-- `PERMISSION_PRESETS` define per-role matrix; `requirePermission(resource, action)` middleware enforces server-side; `roleSync.ts` non-destructively upserts roles/permissions at boot
+- `PERMISSION_PRESETS` define the per-role matrix; `requirePermission(resource, action)` middleware enforces it server-side on every admin/route-guarded endpoint
 - Client mirrors checks with route guards and permission-aware admin UI
 
-### Auth & security
-- Local register/login (bcrypt), email verification + password reset tokens, JWT access token (15 m) in Authorization header + refresh token (7 d) in HttpOnly cookie
-- `authLimiter` on auth endpoints
-- Passport Google + Facebook OAuth — routes (`/auth/google`, `/auth/facebook`) only registered when provider env keys exist; callback redirects to `{CLIENT_URL}/auth/callback?accessToken=...`; `/auth/providers` reports which providers are enabled (drives client button visibility)
-
-### Uploads
-- multer disk storage → `server/src/uploads` (5 MB, jpeg/png/webp/gif/avif, fields `image` / `images` up to 10)
-- When Cloudinary env vars are set, uploads route through Cloudinary instead
-- Prod bundle resolves the dir to `server/uploads` (mounted as a volume in Docker)
-
-### Email (`server/src/config/mailer.ts` + `services/email.service.ts`)
-- Nodemailer SMTP transporter when `SMTP_HOST/USER/PASS` set; otherwise a dev fallback that logs to console
-- Templates: verification email, password reset, order confirmation
-- **Password reset dev fallback**: `forgotPassword` issues a 6-digit numeric code (`crypto.randomInt`) as the reset token (the emailed link `/reset-password?token=<code>` uses the same value, so no separate OTP flow). When SMTP is unconfigured, the response includes `{ code, link }` so the client can show the code inline ("Development mode" panel); when SMTP is configured the response stays `null` (anti-enumeration preserved). Gate is `smtpConfigured`, exported from `mailer.ts`. Client surfaces it in `ForgotPasswordPage` (dev panel with 6-digit code + "Continue to reset password" link) via the `DevResetPayload` type in `src/api/auth.ts`.
+### Auth & security (hardened)
+- Local register/login (bcrypt) with **server-enforced role lock**: register accepts only `customer`; admin elevation requires `ADMIN_REGISTER_CODE`. Passwords ≥ 8 chars; verification gate on restricted resources
+- JWT access token + refresh token in HttpOnly cookie; **tokens stored as SHA-256 hashes** (never raw); refresh rotation on use; revocation on logout / password change / password reset / admin deactivation
+- Email verification + password reset with a 6-digit numeric code (`crypto.randomInt`); when no SMTP is configured, the dev fallback returns `{ code, link }` inline (production keeps anti-enumeration `null`); gate: `smtpConfigured` + `env.isProd`
+- **Rate limiters** (express-rate-limit, `server/src/middlewares/rateLimiter.ts`):
+  | Limiter | Default | Where |
+  |---|---|---|
+  | `apiLimiter` | 300 / 15 m | global `/api` |
+  | `authLimiter` | 20 / 15 m | `/auth/*` |
+  | `subscribeLimiter` | 10 / 15 m | `/newsletter` |
+  | `contactLimiter` | 10 / 1 h | `/contact` |
+  | `adminApiLimiter` | 200 / 15 m | `/admin/users` |
+  - optional env knobs `AUTH_WINDOW_MS` `AUTH_LIMIT` `SUBSCRIBE_*` `CONTACT_*` `ADMIN_WINDOW_MS` `ADMIN_API_LIMIT` `API_WINDOW_MS` `API_LIMIT`; `DISABLE_RATE_LIMIT=1` bypass for local dev
+- **Uploads**: multer local disk (5 MB, jpeg/png/webp/gif/avif, `image`/`images` ≤ 10). New `validateUploadedImage` middleware does **magic-byte sniffing** + extension allowlist; bad files deleted immediately. Cloudinary when `CLOUDINARY_*` set
+- **Activity logging**: `activityLogger` records requests/response summaries with **redaction** of password/token/secret fields at any depth (arrays included) — see `middlewares/activityLogger.ts/.test.ts`
+- **CORS**: same-origin-aware; `CLIENT_URL` drives whitelist
+- **Secrets**: `env.ts` validates at boot — throws for missing `DATABASE_URL`/`JWT_*`, enforces ≥ 32-char JWT secrets, rejects legacy dev placeholders (no insecure defaults)
 
 ### Utilities
 - `ApiError` / `ApiResponse` (uniform `{success, statusCode, message, data}` envelope), `asyncHandler`, token/cookie helpers, slugify
@@ -121,14 +144,15 @@ C:\Self Work\PizzaProject
 
 ## 4. Database & seeding
 
-- **Dev**: `MONGO_URI` empty → `mongodb-memory-server` with a **persistent** data dir `server/.data/db`; auto-seeds on first boot
-- **Real DB**: set `MONGO_URI` (e.g. Atlas, local, or Docker `mongo` service)
-- **Seed script** (`npm run seed`) — destructive (wipes collections), creates:
-  - Roles + permission presets
+- **PostgreSQL is the source of truth**: dev via `supabase start` (local) or any Postgres; prod via Supabase cloud `DATABASE_URL` (see production checklist in `server/.env.example`)
+- **Schema**: SQL migrations in `supabase/migrations/` (local Supabase auto-applies; the suite applies `20250101000000_init.sql` on the test DB)
+- **Mongo legacy**: `MONGO_URI` remains as a placeholder until the one-time mongo→postgres data migration script (`server/src/scripts/migrate-mongo-to-pg.ts`, per `server/.env.example`) is written and run; after that, Mongo can be removed
+- **Seed script** (`npm run seed` — destructive: TRUNCATE + RESTART IDENTITY over all tables), creates:
+  - 68 ORABI products across 7 menu sections / 12 sub-sections (source of truth: `orabi_menu.json` at repo root) with sizes/extras, dish photos in `public/images/products` (reused legacy photos + royalty-free downloads + SVG placeholders, see `scripts/menu-photo-map.json`), 10 `isBestSeller` + 10 `isOffer`
   - 4 users (password `Pizza123!`): `admin@pizzahouse.dev`, `manager@pizzahouse.dev`, `employee@pizzahouse.dev`, `customer@pizzahouse.dev`
-  - 24 categories, 107 products (6 menu sections matching the real ORABI menu from `Menu_Prices.xlsx`: Italian, Eastern, Feteer, Rocket Roll, Sweet Feteer, Meshaltet) with sizes/extras, real dish photos bundled in `public/images/products` (58 images mapped by slug, 600×600), ~10 flagged `isBestSeller` + ~10 flagged `isOffer` (with discount %), coupons, offers, banners, a single real ORABI branch (no address/maps), posts (with images), reviews, delivery zones, default settings
-  - A pre-filled cart for `customer@pizzahouse.dev` (2× Chicken, Margherita, Chocolate) — hydrated client-side on login when localStorage `ph_cart` is empty
-- **roleSync**: on server boot, ensures roles/permissions exist and match presets (non-destructive upsert)
+  - Roles/permissions via `roleSync` (non-destructive upsert), categories, posts, reviews, branches, delivery zones, settings, coupons/offers/banners
+- **Seeding is DESTRUCTIVE** — it TRUNCATEs all tables before inserting. Run it only against a disposable/backed-up DB
+- **roleSync** (`database/roleSync.ts`): boot-time ensure roles + permission presets
 
 ---
 
@@ -141,75 +165,67 @@ C:\Self Work\PizzaProject
 | `npm run dev:all` | Both concurrently |
 | `npm run build` | Client: `tsc -b` + `vite build` → `dist/` |
 | `npm run build:server` | Server: `tsc --noEmit` + esbuild bundle → `server/dist/server.js` |
-| `npm run seed` | Destructive reseed |
-| `npm run test` | Vitest suite (115 checks): unit (coupon service, tokens, slugify, DB path, RBAC middleware, social-auth callback) + API integration (auth, order lifecycle, catalog/reviews incl. best-sellers/offers, RBAC matrix, OAuth providers) on an ephemeral in-memory Mongo |
+| `npm run seed` | Destructive reseed of Postgres |
+| `npm run test` | Vitest suite (unit + API integration) on an ephemeral PG |
 | `npm run test:watch` | Vitest watch mode |
-| `npm run cleanup:smoke` | Idempotent dev-DB cleanup of smoke-test orders; `npm run cleanup:smoke:list` previews (dry run) |
-| `npm run start` | Production server (`NODE_ENV=production`), serves SPA + API on `PORT` |
-| `npm run smoke:ui` | Puppeteer end-to-end suite (18 checks, `SMOKE_BASE` configurable) |
-| `npm run lint` | ESLint (react-hooks/ref rules) |
+| `npm run lint` | ESLint |
 | `npm run preview` | Vite preview of built client |
+| `npm run smoke:ui` | Puppeteer end-to-end (dev servers must run) |
+| `npm run backup` / `backup:db` / `restore:db` | DB dumps + git commit/push (see BACKUP.md) |
+| `npm run start` | Production server (`NODE_ENV=production`), serves SPA + API on PORT |
 
 ### Verification workflow
-1. `npm run test` — 115/115 green
+1. `npm run test` — **full suite: 175 tests across 21 files**
 2. `npm run build` + `npm run build:server`
 3. `npm run lint`
 4. `npm run smoke:ui` (dev servers running) — 18/18 expected
-5. Production check: `npm start` with a real `MONGO_URI`, then `SMOKE_BASE=http://<host>:<port> npm run smoke:ui`
-6. `npm audit` — clean (react-router 8.3.0, nodemailer 9.0.4)
+5. Production check: `npm start` against the real Postgres, then `SMOKE_BASE=http://<host>:<port> npm run smoke:ui`
+6. `npm audit` — clean (express-rate-limit, helmet, etc.)
 
 ---
 
 ## 6. Environment variables
 
-Documented inline in `server/.env.example` (including a production checklist). Key groups: `PORT`, `NODE_ENV`, `MONGO_URI`, `JWT_*`, `COOKIE_SECURE`, `CLIENT_URL`, `CLOUDINARY_*`, `SMTP_*`, `GOOGLE_*`/`FACEBOOK_*`. Dev fallbacks live in `server/src/config/env.ts`.
+Documented inline in `server/.env.example` (including a production checklist). Key groups: `PORT`, `NODE_ENV`, `DATABASE_URL` (required), `SUPABASE_URL` `SUPABASE_SERVICE_ROLE_KEY` `SUPABASE_ANON_KEY`, `REDIS_URL`, `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` (**required ≥ 32 chars**), `ACCESS_TOKEN_EXPIRES` (15m) / `REFRESH_TOKEN_EXPIRES` (7d), `COOKIE_SECURE`, `CLIENT_URL`, `ADMIN_REGISTER_CODE`, rate-limit knobs, `CLOUDINARY_*`, `SMTP_*` + `MAIL_FROM`, `GOOGLE_*`/`FACEBOOK_*`. No insecure defaults — missing required vars crash boot with a clear message (see `server/src/config/env.ts`).
 
 ---
 
 ## 7. Backup & resilience
 
-- **Git**: repo initialized, remote `origin` → `https://github.com/ziad1100/pizza-project.git` (private, `main`). Secrets and data dirs excluded via `.gitignore` (`.env`, `server/.env`, `server/.data/`, `server/uploads/`, `backups/`); secrets mirrored to `backups/secrets/` (git-ignored).
-- **DB backups**: `npm run backup:db` → `mongodump --archive --gzip` inside the mongo container → `C:\Users\<you>\OneDrive\PizzaBackups\db\pizza-<stamp>.gz` (auto-synced to the cloud); legacy `server/.data/db` copied into the same set. `npm run restore:db [file] [--drop]` restores (verified 182 docs).
-- **One command**: `npm run backup` = DB dump + data copy + `git commit` + `git push origin main` (`scripts/backup.mjs`).
-- **Automation**: Windows scheduled task `ORABIBackup` runs `scripts/backup.ps1` daily at 03:00 (log → `OneDrive\PizzaBackups\backup.log`).
-- Full runbook: `BACKUP.md`.
+- **Git**: private repo, remote `origin` → `https://github.com/ziad1100/pizza-project.git`, `main`. Secrets + data dirs excluded (`.env*`, `server/.data/`, `server/uploads/`, `backups/`); secrets mirrored to `backups/secrets/` (git-ignored)
+- **DB backups**: `npm run backup:db` produces, into `OneDrive\PizzaBackups\db\`:
+  - `postgres-pizza-<stamp>.sql.gz` — Postgres dump (pg_dump on PATH → `docker exec supabase-db` → `supabase db dump`), and
+  - `pizza-<stamp>.gz` — legacy Mongo dump (container `pizzaproject-mongo-1`; kept until migration completes)
+- **One command**: `npm run backup` = DB dump(s) + data copy + git commit + push (`scripts/backup.mjs`)
+- **Automation**: Windows scheduled task `ORABIBackup` runs `scripts/backup.ps1` daily 03:00 (log → `OneDrive\PizzaBackups\backup.log`)
+- Full runbook: `BACKUP.md`
 
 ---
 
 ## 8. Docker deployment
 
-- **Dockerfile**: multi-stage — `node:22-alpine` build stage (`npm ci` → client + server builds → `npm prune --omit=dev`) then slim runtime stage running `node server/dist/server.js` as the `node` user with chowned `/app/server/dist/uploads`
-- **docker-compose.yml**: `mongo:7` service (healthchecked, named volume) + `app` (builds the image, `5000:5000`, env pass-through from host `.env`, uploads volume)
-- Run: `docker-compose up --build`; SPA + API at `http://localhost:5000`
-- Note: the image does not ship seed sources — seed a fresh DB separately (`npm run seed` with `MONGO_URI` pointing at the compose Mongo on `localhost:27017`), and validate with `SMOKE_BASE=http://localhost:5000 npm run smoke:ui`
+- **Dockerfile**: multi-stage (`node:22-alpine` build → slim runtime running `server/dist/server.js` as the `node` user)
+- **docker-compose.yml**: `mongo:7` (legacy) + `redis:7-alpine` + `app` (builds image, `5000:5000`, env pass-through from host `.env`, uploads volume). Postgres/Supabase compose is optional; local Supabase is the default PG source
+- Run: `docker compose up --build`; SPA + API at `http://localhost:5000`
+- Validate: `SMOKE_BASE=http://localhost:5000 npm run smoke:ui`
 
 ---
 
-## 8. Status & known limitations
+## 9. Status & known limitations
 
-- All build/lint/typecheck gates green; smoke suite 18/18 in both dev and production modes
-- Order persistence verified against a real MongoDB in production mode
-- **Test suite (added)**: Vitest + Supertest, 108 checks first pass, now 115 (best-sellers/offers routes added). Building it exposed and fixed three latent bugs: `errorHandler` was declared with 3 args, so Express never treated it as an error handler and API errors returned the default HTML page instead of the `{success, message}` JSON envelope; `verifyEmail` and `resetPassword` queried expiry fields that are `select: false` without selecting them, so email verification and password reset always failed with 400
-- **Brand/production pass (ORABI Restaurant)**: rebranded the storefront from "Pizza House" to "مطعم عرابي / ORABI Restaurant" — `DEFAULT_SETTINGS` (name, tagline, daily 10AM–3AM hours, phone `01070003535`, WhatsApp, Facebook/Instagram), `index.html` meta/title, Header/Footer logos, copyright, email templates (`email.service.ts`) and `MAIL_FROM`. Homepage updated with real stats: 107 menu items, 4.6★ customer rating stat + a 5-star "449+ Google reviews" trust bar. Location/Google Maps intentionally omitted per client request.
-- New seed catalog (realigned to `Menu_Prices.xlsx`): removed the invented Fast Food section (~27 AR/EN sandwiches/oriental/grills/sides/desserts/drinks items) — the catalog is now exactly the 107 real ORABI items across 6 sections / 24 categories (6 sections + 18 subs); every product now ships with a real food photo from Wikimedia Commons (`public/images/products/<slug>.jpg`, 58 unique images covering the 107 items) instead of picsum placeholders; ~10 products stay flagged `isOffer` with a discount % (feeds the homepage Deals row) and ~10 `isBestSeller`. Non-pizza descriptions no longer read "بيتزا …".
-- **Real light/dark theme**: the old toggle only swapped the `<body>` background while every component kept hard-coded night-* tokens — light mode rendered mixed white-on-dark cards. The palette is now driven entirely by `--tw-night-*` CSS variables defined in `src/index.css` and redefined for light mode; the remaining hardcoded `text-white` instances (brand/gold solid buttons, hero overlay CTA) were swept to `text-night-50`. `index.html` hardcodes `data-theme="dark"` on `<html>`, and ThemedToaster re-renders off the store theme (the pre-paint first-paint behavior is covered in the next bullet).
-- **Theme applies app-wide (admin included)**: the theme effect originally lived only in the public `Header`, so a hard-load of `/admin` never re-applied the stored theme (it rendered dark regardless of `ph_theme`). Fixes: an inline script in `index.html` reads `ph_theme` **before first paint** and sets `data-theme` (plus the `theme-color` meta — `#0D0D0D` dark / `#FAFAFA` light, so the mobile browser chrome matches), a root `ThemeBootstrap` component (calls `useTheme()` in `src/App.tsx`) re-applies the store theme on every route, and the admin header gained its own `aria-label="theme"` toggle button (mirroring the public header). Light-mode users now get a light first paint — no dark flash on reload, and admin honors the persisted theme.
-- **Homepage section routes added**: `GET /api/v1/products/best-sellers` and `GET /api/v1/products/offers` (registered before the `/:slug` route, which previously 404'd them), returning available-only products; the dead `getFeatured()` client call was removed. Verified by 2 new catalog tests.
-- **Seeded demo cart**: `customer@pizzahouse.dev` starts with 3 items; on login the client hydrates localStorage `ph_cart` from `GET /cart` when the local cart is empty.
-- Mojibake hygiene: fixed `Footer.tsx` (`Ø§Ù„Ù‚Ø§Ù‡Ø±Ø©…`, `Â©`) and `ProductPage.tsx` (`Ø` minutes-unit) via a new `menu.minutes` i18n key; repo grep confirms no remaining `Ø`/`Â` artifacts in client or server sources.
-- **Prod-mode smoke exposed a fourth bug (fixed)**: the persistent dev-Mongo path was derived from `import.meta.url` with two `..` hops — correct under `tsx` (`server/.data/db`) but wrong in the bundled `server/dist/server.js` (`<repo>/.data/db`), so production mode booted against an empty second database. The resolution moved to `server/src/utils/dbPath.ts` (unit-tested) and now anchors at the server workspace in both source and bundled modes; the stray root `.data/` store was removed
-- **Dev DB**: the two lingering smoke orders (`PH-597747-2112`, `PH-018673-6449`) were removed via `npm run cleanup:smoke`; the 11 reviews present were confirmed as seed data (not artifacts) and kept. The script is idempotent (`--list` previews)
-- Docker deployment built and verified on this machine (`docker compose up`): Mongo `:27017` published for host-side seeding, app on `:5000`, seeded DB, smoke 18/18 against the container in production mode
-- Docker build fixes applied: split the `COPY package.json package-lock.json server/package.json ./` into explicit-path COPYs (Windows BuildKit conflated the two `package.json` files), made `mongodb-memory-server` a lazy dynamic import (devDep pruned in the image), and aligned the uploads dir (`server/uploads`) between code, Dockerfile, and compose volume target
-- Social OAuth: handler-level unit tests cover the find-or-create + redirect flow and the `/auth/providers` enable/disable contract; live E2E login still requires real Google/Facebook app credentials
-- **Blog list contract fix (client)**: `GET /api/v1/posts` returns a paginated envelope (`data.items`), but `listPosts` (src/api/posts.ts) was typed as `Promise<Post[]>` — `unwrap()` handed BlogPage the paginated object and `posts.map` crashed (`TypeError: posts.map is not a function`). `listPosts` now returns `Paginated<Post>` and BlogPage consumes `posts.items ?? []` (same pattern as MenuPage/admin pages); verified by a puppeteer run over `/blog` + `/blog/:slug` (no page errors, both seeded posts render)
-- **Checkout flow end-to-end verified**: the smoke suite covered no cart→order path, so a one-off puppeteer run exercised it — customer login → `/checkout` (seeded 3-item demo cart) → place cash order → success toast + redirect to `/orders` → order number rendered (no page errors). The created test order was then removed from the dev DB (0 orders remain); the scripted `cleanup:smoke` only targets two historical order numbers
-- **Image payload trimmed**: all 60 real dish photos (`public/images/products` + blog) re-encoded at JPEG quality 80 with System.Drawing — 13.62 MB → 9.87 MB (the two 1.4 MB PNG-sourced files became ~200 KB each); all files still decode and filenames are unchanged (no seed impact)
-- **Stray dev DB dropped**: an empty `pizza-house-test` database (accidentally created while pointing the cleanup script at a wrong DB name) was removed; the dev mongod now hosts only `test`
-- **CORS fix (`CLIENT_URL`)**: admin-customer register form failed with "Not allowed by CORS". Root `.env` pinned `CLIENT_URL=http://localhost:5000` (overriding the compose default) but the client dev server runs on `:5173`, so browser POSTs were blocked. Changed to `http://localhost:5173` and rebuilt the container — origin `5173` now gets `Access-Control-Allow-Origin`, preflight OPTIONS 204, evil origins rejected. Lesson: the root `.env` (not `docker-compose.yml`) wins.
-- **Gallery page added**: new `/gallery` storefront page (`src/pages/GalleryPage.tsx`) rendering 16 real dish photos with captions and hover zoom, backed by a static array of verified existing `public/images/products/*.jpg` (no new backend); `gallery` i18n block added to `en.json`/`ar.json` + `nav.gallery`, iterated on the nav. A smoke check asserts ≥4 product images render.
-- **Menu realignment to latest `Menu_Prices.xlsx` re-export** (107 items final): dropped the Italiano Meat "Sausage" row (6 items) + Sweet Fatir Chocolate Banana; added Italiano Mix Chicken/Pastrami/Meat Mix and Chicken/Beef/Sausage; converted the Rocket trio + Arayes; product sizes reordered to `[small, medium, large]` with `null` for unoffered sizes. Renamed/new items carry explicit `image` overrides in `seedData.ts` (e.g. `chicken-ranch-chicken.jpg`, `sweet-mix-sweet-feteer.jpg`, `sausage-rocket-roll.jpg`, `orabi-rocket-roll.jpg`, `chicken-bbq-chicken.jpg`); `seed.ts` resolves `item.image ?? derived-slug` and fails fast on missing files; config test asserts the 107 count.
-- **Password reset dev fallback (forgot-password/OTP)**: `forgotPassword` now issues a 6-digit numeric code as the reset token (emailed link and code are the same value). When SMTP is unconfigured the API returns `{ code, link }` and `ForgotPasswordPage` shows a "Development mode" panel with the code + a "Continue to reset password" button; when SMTP is set, the response is `null` (anti-enumeration preserved) and a real email sends. Purely config-gated via `smtpConfigured`. Smoke suite regression previously waited for a reset "link sent" message that never appeared in dev; now asserts the 6-digit code renders, prints a throwaway user, reset-password via the code, and login with the new password.
-- **Login "register" link text fixed**: the login form rendered the literal key `auth.register` (only `nav.register` existed). Added `auth.register` (`"Register"` / `"تسجيل"`) to the `auth` block in `en.json`/`ar.json`.
-- **Show/hide password toggles**: new reusable `PasswordInput` in `src/components/ui/Input.tsx` (existing `Input` + RTL-aware `Eye`/`EyeOff` lucide button toggling `password`↔`text`, `type="button"`, `aria-label`, logical `pe-10`/`end-3`). Applied to all password/confirm-password inputs on `LoginPage`, `RegisterPage`, and `ResetPasswordPage`.
-- No client-side test suite — server coverage is unit + API integration; client is covered by TypeScript, ESLint, and the puppeteer smoke suite
+- **Gates**: `tsc --noEmit` clean (client + server), Vitest **175/175 across 21 files** (`server/src/test/**`), puppeteer smoke 18/18 in dev + production mode. ESLint is clean for scripts/new code; a few pre-existing warnings remain in `server/src/db/*` (`__total` unused) and `LoginPage.tsx` (setState in effect) from the Postgres migration
+- **PostgreSQL migration**: the stack moved from Mongo/Mongoose to PostgreSQL (`pg` + Supabase). Test suite runs against a disposable `postgres:16-alpine` container (port 54329, schemas from `supabase/migrations/`) with a Docker-free CI path via `TEST_DATABASE_URL`. A mongo→postgres data migration script remains as the last Mongo-dependent piece
+- **Security hardening** (see `docs/SECURITY_AUDIT.md`): findings S1–S9/S11 fixed — server-side auth role lock + session revocation + hashed tokens at rest, pricing from DB values, unknown extras → 400, upload magic-byte validation, rate-limit knobs, activity-log redaction; S7 verified via posts guard tests; S10/S12 documented. Follow-ups (MFA, direct RLS enforcement at the app layer, sessions/devices UI) are roadmap
+- **Redis/BullMQ**: cache layer + job queue in place; `REDIS_URL` optional (degrades gracefully)
+- **Docs**: security/ops docs under `docs/` (SECURITY_AUDIT, SECURITY_ARCHITECTURE_AUDIT, SECURITY, AUTHENTICATION, ADMIN_AUTHORIZATION, RLS_POLICIES, API_SECURITY, SECRET_MANAGEMENT, THREAT_MODEL, INCIDENT_RESPONSE, SECRET_ROTATION, OPERATIONS, LOAD_TESTS, PERFORMANCE_AUDIT, google-oauth-setup)
+- Full history of product/brand/UX fixes is preserved in git log (rebrand to ORABI, theme app-wide, menu realignment to `Menu_Prices.xlsx`, image trimming 13.62 MB → 9.87 MB, blog list contract fix, checkout E2E, CORS fix, dev fallback password-reset code, etc.)
+- No client test suite — server is covered by unit + API integration; client is covered by TypeScript, ESLint, and the puppeteer smoke suite
+
+---
+
+## 10. Known issues / next steps
+
+- `scripts/backup-db.mjs` still writes the Postgres archive via a toolchain search; when none of pg_dump / supabase-db container / supabase CLI is available it prints a clear skip (DB dump failing is loud, not silent)
+- `restore:db` currently covers Mongo archives only; Postgres restores go through `psql -f` into the target DB (see BACKUP.md)
+- Docker Desktop is NOT available on this dev machine right now — any container-dependent verification (compose up, smoke against container) needs it started
+- Mongo-legacy pieces (`.env.example` `MONGO_URI`, `docker-compose.yml` mongo service, `backup-db.mjs` mongo section) are retained until the mongo→postgres migration is run once against the real data

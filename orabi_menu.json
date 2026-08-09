@@ -1,0 +1,84 @@
+{
+  "restaurant": "Orabi Restaurant - مطعم عرابي",
+  "menu_items": [
+    { "id": 1, "category": "Appetizers - المقبلات", "arabic_name": "باكيت بطاطس", "english_name": "Potato Bag", "price": [35, 20], "image_url": "" },
+    { "id": 2, "category": "Appetizers - المقبلات", "arabic_name": "بطاطس شيدر", "english_name": "Cheddar Potato", "price": [50], "image_url": "" },
+    { "id": 3, "category": "Appetizers - المقبلات", "arabic_name": "بطاطس موتزريلا فرن", "english_name": "Baked Mozzarella Potato", "price": [50], "image_url": "" },
+
+    { "id": 4, "category": "Pasta - باستا", "arabic_name": "مكرونة نجرسكو", "english_name": "Negresco Pasta", "price": [70], "image_url": "" },
+    { "id": 5, "category": "Pasta - باستا", "arabic_name": "نابولي", "english_name": "Napolitana Pasta", "price": [40], "image_url": "" },
+    { "id": 6, "category": "Pasta - باستا", "arabic_name": "فراخ", "english_name": "Chicken Pasta", "price": [60], "image_url": "" },
+    { "id": 7, "category": "Pasta - باستا", "arabic_name": "لحمه", "english_name": "Meat Pasta", "price": [60], "image_url": "" },
+    { "id": 8, "category": "Pasta - باستا", "arabic_name": "الفريدو", "english_name": "Alfredo Pasta", "price": [80], "image_url": "" },
+    { "id": 9, "category": "Pasta - باستا", "arabic_name": "سجق", "english_name": "Sausage Pasta", "price": [50], "image_url": "" },
+    { "id": 10, "category": "Pasta - باستا", "arabic_name": "هوت دوج", "english_name": "Hot Dog Pasta", "price": [60], "image_url": "" },
+    { "id": 11, "category": "Pasta - باستا", "arabic_name": "جمبري", "english_name": "Shrimp Pasta", "price": [90], "image_url": "" },
+
+    { "id": 12, "category": "Hawawshi - الحواوشي", "arabic_name": "سجق حواوشي", "english_name": "Sausage Hawawshi", "price": [70], "image_url": "" },
+    { "id": 13, "category": "Hawawshi - الحواوشي", "arabic_name": "لحمه حواوشي", "english_name": "Meat Hawawshi", "price": [95], "image_url": "" },
+    { "id": 14, "category": "Hawawshi - الحواوشي", "arabic_name": "فراخ حواوشي", "english_name": "Chicken Hawawshi", "price": [85], "image_url": "" },
+    { "id": 15, "category": "Hawawshi - الحواوشي", "arabic_name": "تونه حواوشي", "english_name": "Tuna Hawawshi", "price": [110], "image_url": "" },
+    { "id": 16, "category": "Hawawshi - الحواوشي", "arabic_name": "مكس جبن حواوشي", "english_name": "Cheese Mix Hawawshi", "price": [110], "image_url": "" },
+    { "id": 17, "category": "Hawawshi - الحواوشي", "arabic_name": "مكس لحوم حواوشي", "english_name": "Meat Mix Hawawshi", "price": [110], "image_url": "" },
+    { "id": 18, "category": "Hawawshi - الحواوشي", "arabic_name": "مكس فراخ حواوشي", "english_name": "Chicken Mix Hawawshi", "price": [110], "image_url": "" },
+
+    { "id": 19, "category": "Add-ons - الإضافات", "arabic_name": "موتزريلا", "english_name": "Mozzarella", "price": [35, 25, 15], "image_url": "" },
+    { "id": 20, "category": "Add-ons - الإضافات", "arabic_name": "فراخ", "english_name": "Chicken", "price": [50, 35, 25], "image_url": "" },
+    { "id": 21, "category": "Add-ons - الإضافات", "arabic_name": "لحوم", "english_name": "Meat", "price": [50, 35, 25], "image_url": "" },
+    { "id": 22, "category": "Add-ons - الإضافات", "arabic_name": "قطعة كيري", "english_name": "Kiri Cheese Piece", "price": [15], "image_url": "" },
+
+    { "id": 23, "category": "Chicken Crepe - كريب الفراخ", "arabic_name": "كريب استريس", "english_name": "Estris Crepe", "price": [70], "image_url": "" },
+    { "id": 24, "category": "Chicken Crepe - كريب الفراخ", "arabic_name": "كريب باتيه", "english_name": "Pate Crepe", "price": [55], "image_url": "" },
+    { "id": 25, "category": "Chicken Crepe - كريب الفراخ", "arabic_name": "شاورما فراخ", "english_name": "Chicken Shawarma Crepe", "price": [75], "image_url": "" },
+    { "id": 26, "category": "Chicken Crepe - كريب الفراخ", "arabic_name": "اتشكن باربيكيو", "english_name": "BBQ Chicken Crepe", "price": [80], "image_url": "" },
+    { "id": 27, "category": "Chicken Crepe - كريب الفراخ", "arabic_name": "اتشكن رانش", "english_name": "Ranch Chicken Crepe", "price": [55], "image_url": "" },
+    { "id": 28, "category": "Chicken Crepe - كريب الفراخ", "arabic_name": "اتشكن كرسبي", "english_name": "Crispy Chicken Crepe", "price": [75], "image_url": "" },
+    { "id": 29, "category": "Chicken Crepe - كريب الفراخ", "arabic_name": "فاهيتا فراخ", "english_name": "Chicken Fajita Crepe", "price": [75], "image_url": "" },
+    { "id": 30, "category": "Chicken Crepe - كريب الفراخ", "arabic_name": "اتشكن كرانشي", "english_name": "Crunchy Chicken Crepe", "price": [], "image_url": "" },
+
+    { "id": 31, "category": "Meat Crepe - كريب اللحوم", "arabic_name": "لحمه", "english_name": "Meat Crepe", "price": [65], "image_url": "" },
+    { "id": 32, "category": "Meat Crepe - كريب اللحوم", "arabic_name": "برجر لحمه", "english_name": "Meat Burger Crepe", "price": [60], "image_url": "" },
+    { "id": 33, "category": "Meat Crepe - كريب اللحوم", "arabic_name": "هوت دوج", "english_name": "Hot Dog Crepe", "price": [60], "image_url": "" },
+    { "id": 34, "category": "Meat Crepe - كريب اللحوم", "arabic_name": "هوت دوج مكسيكانو", "english_name": "Mexican Hot Dog Crepe", "price": [55], "image_url": "" },
+    { "id": 35, "category": "Meat Crepe - كريب اللحوم", "arabic_name": "كريب سجق بلدي", "english_name": "Baladi Sausage Crepe", "price": [60], "image_url": "" },
+    { "id": 36, "category": "Meat Crepe - كريب اللحوم", "arabic_name": "سجق اسكندراني", "english_name": "Alexandrian Sausage Crepe", "price": [60], "image_url": "" },
+    { "id": 37, "category": "Meat Crepe - كريب اللحوم", "arabic_name": "كفته", "english_name": "Kofta Crepe", "price": [60], "image_url": "" },
+
+    { "id": 38, "category": "Mix Crepe - كريب المكس", "arabic_name": "مكس فراخ", "english_name": "Chicken Mix Crepe", "price": [100], "image_url": "" },
+    { "id": 39, "category": "Mix Crepe - كريب المكس", "arabic_name": "اسابيس شاورما بانيه", "english_name": "Shawarma-Pane Mix Crepe", "price": [75], "image_url": "" },
+    { "id": 40, "category": "Mix Crepe - كريب المكس", "arabic_name": "مكس جبن", "english_name": "Cheese Mix Crepe", "price": [90], "image_url": "" },
+    { "id": 41, "category": "Mix Crepe - كريب المكس", "arabic_name": "اسابيس شاورما بطاطس باربيكيو", "english_name": "Shawarma-Potato-BBQ Mix Crepe", "price": [110], "image_url": "" },
+    { "id": 42, "category": "Mix Crepe - كريب المكس", "arabic_name": "مكس الاسطورة", "english_name": "Legend Mix Crepe", "price": [100], "image_url": "" },
+    { "id": 43, "category": "Mix Crepe - كريب المكس", "arabic_name": "سوبر كرانشي", "english_name": "Super Crunchy Crepe", "price": [100], "image_url": "" },
+    { "id": 44, "category": "Mix Crepe - كريب المكس", "arabic_name": "سكة قليه", "english_name": "Sekket Alia Crepe", "price": [100], "image_url": "" },
+    { "id": 45, "category": "Mix Crepe - كريب المكس", "arabic_name": "قلبانة عرابي", "english_name": "Orabi Qalbana Crepe", "price": [100], "image_url": "" },
+
+    { "id": 46, "category": "Assorted Crepe - كريب المتنوع", "arabic_name": "بطاطس", "english_name": "Potato Crepe", "price": [40], "image_url": "" },
+    { "id": 47, "category": "Assorted Crepe - كريب المتنوع", "arabic_name": "مشروم", "english_name": "Mushroom Crepe", "price": [50], "image_url": "" },
+    { "id": 48, "category": "Assorted Crepe - كريب المتنوع", "arabic_name": "موتزريلا", "english_name": "Mozzarella Crepe", "price": [50], "image_url": "" },
+    { "id": 49, "category": "Assorted Crepe - كريب المتنوع", "arabic_name": "جبنه رومي", "english_name": "Roman Cheese Crepe", "price": [60], "image_url": "" },
+    { "id": 50, "category": "Assorted Crepe - كريب المتنوع", "arabic_name": "بطاطس شيدر", "english_name": "Cheddar Potato Crepe", "price": [55], "image_url": "" },
+
+    { "id": 51, "category": "Delivery Cans - السفرة", "arabic_name": "علبة عادة", "english_name": "Regular Can", "price": [15], "image_url": "" },
+    { "id": 52, "category": "Delivery Cans - السفرة", "arabic_name": "علبة عرابي", "english_name": "Orabi Can", "price": [20], "image_url": "" },
+    { "id": 53, "category": "Delivery Cans - السفرة", "arabic_name": "علبة سوبر", "english_name": "Super Can", "price": [30], "image_url": "" },
+    { "id": 54, "category": "Delivery Cans - السفرة", "arabic_name": "علبة جامبو", "english_name": "Jumbo Can", "price": [40], "image_url": "" },
+
+    { "id": 55, "category": "Tagine - الطواجن", "arabic_name": "طاجن لحمة", "english_name": "Meat Tagine", "price": [40], "image_url": "" },
+    { "id": 56, "category": "Tagine - الطواجن", "arabic_name": "طاجن فراخ", "english_name": "Chicken Tagine", "price": [45], "image_url": "" },
+    { "id": 57, "category": "Tagine - الطواجن", "arabic_name": "طاجن مكس لحمة", "english_name": "Meat Mix Tagine", "price": [50], "image_url": "" },
+    { "id": 58, "category": "Tagine - الطواجن", "arabic_name": "طاجن مكس فراخ", "english_name": "Chicken Mix Tagine", "price": [55], "image_url": "" },
+    { "id": 59, "category": "Tagine - الطواجن", "arabic_name": "طاجن موتزاريلا لحمة", "english_name": "Meat Mozzarella Tagine", "price": [55], "image_url": "" },
+    { "id": 60, "category": "Tagine - الطواجن", "arabic_name": "طاجن موتزاريلا فراخ", "english_name": "Chicken Mozzarella Tagine", "price": [60], "image_url": "" },
+
+    { "id": 61, "category": "Dessert - الحلو", "arabic_name": "أرز عادي", "english_name": "Regular Rice", "price": [15], "image_url": "" },
+    { "id": 62, "category": "Dessert - الحلو", "arabic_name": "أرز فرن", "english_name": "Baked Rice", "price": [17], "image_url": "" },
+    { "id": 63, "category": "Dessert - الحلو", "arabic_name": "كاتز", "english_name": "Custard", "price": [25], "image_url": "" },
+    { "id": 64, "category": "Dessert - الحلو", "arabic_name": "مياه", "english_name": "Water", "price": [10], "image_url": "" },
+
+    { "id": 65, "category": "Sweet Crepe - كريب الحلو", "arabic_name": "شيكولاتة", "english_name": "Chocolate Crepe", "price": [50], "image_url": "" },
+    { "id": 66, "category": "Sweet Crepe - كريب الحلو", "arabic_name": "شيكولاتة موز", "english_name": "Chocolate Banana Crepe", "price": [60], "image_url": "" },
+    { "id": 67, "category": "Sweet Crepe - كريب الحلو", "arabic_name": "شيكولاتة أوريو", "english_name": "Chocolate Oreo Crepe", "price": [60], "image_url": "" },
+    { "id": 68, "category": "Sweet Crepe - كريب الحلو", "arabic_name": "لوتس", "english_name": "Lotus Crepe", "price": [65], "image_url": "" }
+  ]
+}

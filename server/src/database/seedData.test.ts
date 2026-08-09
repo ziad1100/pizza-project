@@ -22,13 +22,13 @@ describe('seed catalog integrity (ORABI menu)', () => {
     section.subs.flatMap((sub) => sub.items.map((item) => ({ item, sub, section }))),
   );
 
-  it('has the documented 6 sections and 18 sub-sections', () => {
-    expect(seedSections).toHaveLength(6);
-    expect(seedSections.flatMap((s) => s.subs)).toHaveLength(18);
+  it('has the documented 7 sections and 12 sub-sections', () => {
+    expect(seedSections).toHaveLength(7);
+    expect(seedSections.flatMap((s) => s.subs)).toHaveLength(12);
   });
 
-  it('has 107 products', () => {
-    expect(pairs).toHaveLength(107);
+  it('has 68 products', () => {
+    expect(pairs).toHaveLength(68);
   });
 
   it('every product maps to an existing dish photo in public/images/products', () => {
