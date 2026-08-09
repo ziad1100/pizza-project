@@ -10,6 +10,7 @@ export interface SafeUser {
   isVerified: boolean;
   addresses: unknown[];
   provider: string;
+  providerId: string;
 }
 
 export interface UserWithCredentials extends SafeUser {
@@ -24,7 +25,7 @@ export interface UserWithCredentials extends SafeUser {
 }
 
 const PUBLIC_COLS = `u.id::text AS "id", u."fullName", u.email, u.phone, u.role::text, u.avatar,
-  u."isVerified", u.addresses, u.provider::text AS "provider"`;
+  u."isVerified", u.addresses, u.provider::text AS "provider", u."providerId"`;
 
 const WITH_CRED_COLS = `${PUBLIC_COLS}, u."passwordHash", u."refreshToken", u."emailVerifyToken",
   u."emailVerifyExpires", u."resetToken", u."resetTokenExpires", u."isActive", u."createdAt"`;
@@ -38,6 +39,11 @@ export const getById = async (id: string): Promise<UserWithCredentials | null> =
 export const getByEmail = async (email: string): Promise<UserWithCredentials | null> => {
   const rows = await query(`SELECT ${WITH_CRED_COLS} FROM users u WHERE u.email = $1 LIMIT 1`, [email]);
   return ((rows[0] as unknown) as UserWithCredentials | undefined) ?? null;
+};
+
+export const countByEmail = async (email: string): Promise<number> => {
+  const rows = await query<{ n: string }>(`SELECT count(*) AS n FROM users WHERE email = $1`, [email]);
+  return Number(rows[0]?.n ?? 0);
 };
 
 export const getByVerifyToken = async (token: string): Promise<UserWithCredentials | null> => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import Category from '../../models/Category';
-import Product from '../../models/Product';
+import * as categoriesRepo from '../../db/categories';
+import * as productsRepo from '../../db/products';
 import { api, bearer, createUser, seedRoles, toId } from '../helpers';
 
 const AUTH = '/api/v1/auth';
@@ -16,12 +16,12 @@ const BRANCHES = '/api/v1/branches';
 const CONTACT = '/api/v1/contacts';
 
 const setupCatalog = async () => {
-  const category = await Category.create({ name: 'بيتزا', nameEn: 'Pizza', slug: 'pizza', type: 'section', isActive: true });
-  const product = await Product.create({
+  const category = await categoriesRepo.create({ name: 'بيتزا', nameEn: 'Pizza', slug: 'pizza', type: 'section', isActive: true });
+  const product = await productsRepo.create({
     name: 'بيبروني',
     nameEn: 'Pepperoni',
     slug: 'pepperoni',
-    category: category._id,
+    category: toId(category._id),
     basePrice: 120,
     sizes: [{ name: 'كبير', nameEn: 'Large', price: 150 }],
     extras: [{ name: 'جبنة إضافية', nameEn: 'Extra cheese', price: 10 }],
@@ -60,7 +60,7 @@ describe('zod validation', () => {
       const user = await createUser();
       const res = await api
         .post(`${AUTH}/change-password`)
-        .set(bearer(toId(user._id)))
+        .set(bearer(user.id))
         .send({ currentPassword: 'Pizza123!', newPassword: 'short' });
       expect(res.status).toBe(422);
     });
@@ -72,7 +72,7 @@ describe('zod validation', () => {
       const user = await createUser();
       const res = await api
         .post(ORDERS)
-        .set(bearer(toId(user._id)))
+        .set(bearer(user.id))
         .send({
           items: [{ product: toId(product._id) }],
           address: { city: 'Cairo', street: 'Main', building: '5' },
@@ -85,7 +85,7 @@ describe('zod validation', () => {
       const user = await createUser();
       const res = await api
         .post(ORDERS)
-        .set(bearer(toId(user._id)))
+        .set(bearer(user.id))
         .send({
           items: [{ product: 'xyz', qty: 1 }],
           address: { city: 'Cairo', street: 'Main', building: '5' },
@@ -99,7 +99,7 @@ describe('zod validation', () => {
       const user = await createUser();
       const res = await api
         .post(ORDERS)
-        .set(bearer(toId(user._id)))
+        .set(bearer(user.id))
         .send({
           items: [{ product: toId(product._id), qty: 0 }],
           address: { city: 'Cairo', street: 'Main', building: '5' },
@@ -113,7 +113,7 @@ describe('zod validation', () => {
       const user = await createUser();
       const res = await api
         .post(ORDERS)
-        .set(bearer(toId(user._id)))
+        .set(bearer(user.id))
         .send({
           items: [{ product: toId(product._id), qty: 1, extras: [{ name: 'X', price: -5 }] }],
           address: { city: 'Cairo', street: 'Main', building: '5' },
@@ -125,7 +125,7 @@ describe('zod validation', () => {
     it('rejects a missing address with 422', async () => {
       const { product } = await setupCatalog();
       const user = await createUser();
-      const res = await api.post(ORDERS).set(bearer(toId(user._id))).send({ items: [{ product: toId(product._id), qty: 1 }] });
+      const res = await api.post(ORDERS).set(bearer(user.id)).send({ items: [{ product: toId(product._id), qty: 1 }] });
       expect(res.status).toBe(422);
     });
   });
@@ -136,7 +136,7 @@ describe('zod validation', () => {
       const user = await createUser();
       const res = await api
         .post(`${CART}/items`)
-        .set(bearer(toId(user._id)))
+        .set(bearer(user.id))
         .send({ product: toId(product._id), qty: 0 });
       expect(res.status).toBe(422);
     });
@@ -145,7 +145,7 @@ describe('zod validation', () => {
       const user = await createUser();
       const res = await api
         .post(`${CART}/items`)
-        .set(bearer(toId(user._id)))
+        .set(bearer(user.id))
         .send({ product: 'not-an-id', qty: 1 });
       expect(res.status).toBe(422);
     });
@@ -157,7 +157,7 @@ describe('zod validation', () => {
       const admin = await createUser({ role: 'admin' });
       const res = await api
         .post(PRODUCTS)
-        .set(bearer(toId(admin._id)))
+        .set(bearer(admin.id))
         .send({ name: 'X', category: toId(category._id), basePrice: -5 });
       expect(res.status).toBe(422);
     });
@@ -167,38 +167,38 @@ describe('zod validation', () => {
       const admin = await createUser({ role: 'admin' });
       const res = await api
         .patch(`${PRODUCTS}/${toId(product._id)}`)
-        .set(bearer(toId(admin._id)))
+        .set(bearer(admin.id))
         .send({ basePrice: 'not-a-number' });
       expect(res.status).toBe(422);
     });
 
     it('rejects an invalid category type with 422', async () => {
       const admin = await createUser({ role: 'admin' });
-      const res = await api.post(CATEGORIES).set(bearer(toId(admin._id))).send({ name: 'X', type: 'nope' });
+      const res = await api.post(CATEGORIES).set(bearer(admin.id)).send({ name: 'X', type: 'nope' });
       expect(res.status).toBe(422);
     });
 
     it('rejects an offer missing startDate with 422', async () => {
       const admin = await createUser({ role: 'admin' });
-      const res = await api.post(OFFERS).set(bearer(toId(admin._id))).send({ title: 'Big Deal' });
+      const res = await api.post(OFFERS).set(bearer(admin.id)).send({ title: 'Big Deal' });
       expect(res.status).toBe(422);
     });
 
     it('rejects a branch missing a name with 422', async () => {
       const admin = await createUser({ role: 'admin' });
-      const res = await api.post(BRANCHES).set(bearer(toId(admin._id))).send({ address: 'Cairo' });
+      const res = await api.post(BRANCHES).set(bearer(admin.id)).send({ address: 'Cairo' });
       expect(res.status).toBe(422);
     });
 
     it('rejects an invalid coupon type with 422', async () => {
       const admin = await createUser({ role: 'admin' });
-      const res = await api.post(COUPONS).set(bearer(toId(admin._id))).send({ code: 'X10', type: 'half', value: 5 });
+      const res = await api.post(COUPONS).set(bearer(admin.id)).send({ code: 'X10', type: 'half', value: 5 });
       expect(res.status).toBe(422);
     });
 
     it('rejects a negative coupon value with 422', async () => {
       const admin = await createUser({ role: 'admin' });
-      const res = await api.post(COUPONS).set(bearer(toId(admin._id))).send({ code: 'X10', type: 'percent', value: -3 });
+      const res = await api.post(COUPONS).set(bearer(admin.id)).send({ code: 'X10', type: 'percent', value: -3 });
       expect(res.status).toBe(422);
     });
 
@@ -207,12 +207,12 @@ describe('zod validation', () => {
       const admin = await createUser({ role: 'admin' });
       const created = await api
         .post(REVIEWS)
-        .set(bearer(toId(admin._id)))
+        .set(bearer(admin.id))
         .send({ product: toId(product._id), rating: 5 });
       const reviewId = created.body.data._id;
       const res = await api
         .patch(`${REVIEWS}/${reviewId}/moderate`)
-        .set(bearer(toId(admin._id)))
+        .set(bearer(admin.id))
         .send({ isApproved: 'yes' });
       expect(res.status).toBe(422);
     });
@@ -223,7 +223,7 @@ describe('zod validation', () => {
       const admin = await createUser({ role: 'admin' });
       const res = await api
         .patch(SETTINGS)
-        .set(bearer(toId(admin._id)))
+        .set(bearer(admin.id))
         .send({ deliveryFee: 30, evilSetting: 'injected' });
       expect(res.status).toBe(200);
       expect(res.body.data.deliveryFee).toBe(30);
@@ -232,7 +232,7 @@ describe('zod validation', () => {
 
     it('rejects a non-numeric delivery fee with 422', async () => {
       const admin = await createUser({ role: 'admin' });
-      const res = await api.patch(SETTINGS).set(bearer(toId(admin._id))).send({ deliveryFee: 'abc' });
+      const res = await api.patch(SETTINGS).set(bearer(admin.id)).send({ deliveryFee: 'abc' });
       expect(res.status).toBe(422);
     });
   });

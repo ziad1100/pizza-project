@@ -60,6 +60,7 @@ const apiLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
+  skip: () => process.env.DISABLE_RATE_LIMIT === '1',
 });
 app.use('/api', apiLimiter);
 

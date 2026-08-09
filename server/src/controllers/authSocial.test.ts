@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Request, Response } from 'express';
 import * as auth from './auth.controller';
-import User from '../models/User';
+import * as usersRepo from '../db/users';
 import { createUser, seedRoles } from '../test/helpers';
 
 interface MockRes {
@@ -37,7 +37,7 @@ describe('socialAuthCallback', () => {
 
   it('creates a new user for an unknown google profile and redirects with a token', async () => {
     const res = await callSocialAuth('google', googleProfile);
-    const user = await User.findOne({ email: 'gina@example.com' }).lean();
+    const user = await usersRepo.getByEmail('gina@example.com');
     expect(user).not.toBeNull();
     expect(user).toMatchObject({ provider: 'google', providerId: 'google-123', isVerified: true, avatar: 'https://example.com/gina.jpg', role: 'customer' });
     const redirectUrl = res.redirect.mock.calls[0][0] as string;
@@ -48,9 +48,9 @@ describe('socialAuthCallback', () => {
   it('reuses an existing user with the same email', async () => {
     const existing = await createUser({ email: 'gina@example.com' });
     await callSocialAuth('google', googleProfile);
-    const users = await User.find({ email: 'gina@example.com' }).lean();
-    expect(users).toHaveLength(1);
-    expect(String(users[0]._id)).toBe(String(existing._id));
+    expect(await usersRepo.countByEmail('gina@example.com')).toBe(1);
+    const user = await usersRepo.getByEmail('gina@example.com');
+    expect(user?.id).toBe(existing.id);
   });
 
   it('links the google provider onto an existing account and keeps its role', async () => {
@@ -60,7 +60,7 @@ describe('socialAuthCallback', () => {
       id: 'google-boss',
       emails: [{ value: 'boss@example.com' }],
     });
-    const user = await User.findOne({ email: 'boss@example.com' }).lean();
+    const user = await usersRepo.getByEmail('boss@example.com');
     expect(user).toMatchObject({ provider: 'google', providerId: 'google-boss', role: 'admin', avatar: 'https://example.com/gina.jpg' });
     expect(res.redirect.mock.calls[0][0] as string).toContain('/auth/callback#accessToken=');
   });
@@ -82,7 +82,7 @@ describe('socialAuthCallback', () => {
       emails: [],
       photos: [],
     });
-    const user = await User.findOne({ email: 'fb-456@facebook.local' }).lean();
+    const user = await usersRepo.getByEmail('fb-456@facebook.local');
     expect(user).not.toBeNull();
     expect(user).toMatchObject({ provider: 'facebook', providerId: 'fb-456' });
     expect(res.redirect.mock.calls[0][0] as string).toContain('/auth/callback#accessToken=');

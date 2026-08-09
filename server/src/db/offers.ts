@@ -1,5 +1,17 @@
 import { query, withTransaction } from './index';
+import { ApiError } from '../utils/ApiError';
 import { PUBLIC_COLS } from './products';
+
+const MONGODB_ID_RE = /^[0-9a-fA-F]{24}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Mongo semantics parity: a 24-char hex id is a valid lookup that simply matches
+// nothing (404); anything else is bad input (400, same as a CastError).
+export const toUuidOrNull = (id: string): string | null => {
+  if (UUID_RE.test(id)) return id;
+  if (MONGODB_ID_RE.test(id)) return null;
+  throw new ApiError(400, 'Invalid id or number format');
+};
 
 const OFFER_CORE = `
   o.id::text AS "_id",
@@ -32,16 +44,20 @@ export const activeOffers = async (): Promise<Record<string, unknown>[]> =>
   )) as Record<string, unknown>[];
 
 export const getActiveById = async (id: string): Promise<Record<string, unknown> | null> => {
+  const u = toUuidOrNull(id);
+  if (!u) return null;
   const rows = await query(
     `SELECT ${PUBLIC_OFFER_COLS} FROM offers o
      WHERE o.id = $1::uuid AND o."isActive" = true LIMIT 1`,
-    [id],
+    [u],
   );
   return (rows[0] as Record<string, unknown>) ?? null;
 };
 
 export const getById = async (id: string): Promise<Record<string, unknown> | null> => {
-  const rows = await query(`SELECT ${ADMIN_OFFER_COLS} FROM offers o WHERE o.id = $1::uuid LIMIT 1`, [id]);
+  const u = toUuidOrNull(id);
+  if (!u) return null;
+  const rows = await query(`SELECT ${ADMIN_OFFER_COLS} FROM offers o WHERE o.id = $1::uuid LIMIT 1`, [u]);
   return (rows[0] as Record<string, unknown>) ?? null;
 };
 
@@ -76,7 +92,7 @@ const syncProducts = async (client: typeof query, offerId: string, products: str
   }
 };
 
-export const create = async (data: OfferInput): Promise<Record<string, unknown> | null> => {
+export const create = async (data: OfferInput): Promise<Record<string, unknown>> => {
   let id = '';
   await withTransaction(async (tx) => {
     const inserted = await tx.query<{ id: string }>(
@@ -91,7 +107,7 @@ export const create = async (data: OfferInput): Promise<Record<string, unknown> 
     id = inserted.rows[0].id;
     await syncProducts(tx.query.bind(tx), id, data.products);
   });
-  return getById(id);
+  return (await getById(id)) as Record<string, unknown>;
 };
 
 export const update = async (id: string, data: OfferInput): Promise<Record<string, unknown> | null> => {

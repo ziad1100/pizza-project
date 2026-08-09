@@ -1,31 +1,31 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import Category from '../../models/Category';
-import Offer from '../../models/Offer';
-import Product from '../../models/Product';
+import * as categoriesRepo from '../../db/categories';
+import * as offersRepo from '../../db/offers';
+import * as productsRepo from '../../db/products';
 import { api, seedRoles, toId } from '../helpers';
 
 const OFFERS = '/api/v1/offers';
 
 const setup = async () => {
-  const sub = await Category.create({ name: 'كلاسيك', nameEn: 'Classic', slug: 'classic-keys', type: 'sub', isActive: true });
-  const pepperoni = await Product.create({
+  const sub = await categoriesRepo.create({ name: 'كلاسيك', nameEn: 'Classic', slug: 'classic-keys', type: 'sub', isActive: true });
+  const pepperoni = await productsRepo.create({
     name: 'بيبروني',
     nameEn: 'Pepperoni',
     slug: 'pepperoni-offer',
-    category: sub._id,
+    category: toId(sub._id),
     basePrice: 120,
     isAvailable: true,
   });
-  const margherita = await Product.create({
+  const margherita = await productsRepo.create({
     name: 'مارغريتا',
     nameEn: 'Margherita',
     slug: 'margherita-offer',
-    category: sub._id,
+    category: toId(sub._id),
     basePrice: 90,
     isAvailable: true,
   });
   const now = Date.now();
-  const active = await Offer.create({
+  const active = await offersRepo.create({
     title: 'أوفير الأسبوع',
     titleEn: 'Weekend Special',
     description: '',
@@ -33,11 +33,11 @@ const setup = async () => {
     discountValue: 50,
     startDate: new Date(now - 3600_000),
     endDate: new Date(now + 30 * 86400_000),
-    products: [pepperoni._id, margherita._id],
+    products: [toId(pepperoni._id), toId(margherita._id)],
     theme: 'red',
     isActive: true,
   });
-  const inactive = await Offer.create({
+  const inactive = await offersRepo.create({
     title: 'عرض مخفي',
     titleEn: 'Hidden Offer',
     description: '',

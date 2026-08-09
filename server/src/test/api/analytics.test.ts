@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { Types } from 'mongoose';
-import Order from '../../models/Order';
+import { query } from '../../db';
 import { periodWindows } from '../../controllers/analytics.controller';
-import { api, bearer, createUser, seedRoles, toId } from '../helpers';
+import { api, bearer, createUser, seedRoles } from '../helpers';
 
 const DASHBOARD = '/api/v1/analytics/dashboard';
 
@@ -14,39 +13,36 @@ interface SeedOrderInput {
   status?: string;
 }
 
-const seedOrder = (customerId: Types.ObjectId, data: SeedOrderInput) => {
+const seedOrder = async (customerId: string, data: SeedOrderInput) => {
   const lineTotal = data.unitPrice * data.qty;
-  return Order.create({
-    orderNo: `PH-A-${Math.random().toString(36).slice(2, 8)}`,
-    user: customerId,
-    items: [
-      {
-        product: new Types.ObjectId(),
-        name: data.name,
-        size: '',
-        extras: [],
-        qty: data.qty,
-        unitPrice: data.unitPrice,
-        lineTotal,
-      },
+  const created = await query<{ id: string }>(
+    `INSERT INTO orders ("orderNo", "userId", subtotal, "deliveryFee", discount, total,
+       "paymentMethod", "paymentStatus", "paymentAmount", phone, "customerName", status,
+       "createdAt", "statusHistory")
+     VALUES ($1, $2, $3, 0, 0, $3, 'cash', 'pending', $4, $5, $6, $7, $8, '[]'::jsonb)
+     RETURNING id`,
+    [
+      `PH-A-${Math.random().toString(36).slice(2, 8)}`,
+      customerId,
+      lineTotal,
+      lineTotal,
+      '01000000000',
+      'Test Customer',
+      data.status ?? 'pending',
+      data.orderId,
     ],
-    subtotal: lineTotal,
-    deliveryFee: 0,
-    discount: 0,
-    total: lineTotal,
-    payment: { method: 'cash', status: 'pending', amount: lineTotal },
-    status: data.status ?? 'pending',
-    phone: '01000000000',
-    customerName: 'Test Customer',
-    createdAt: data.orderId,
-    statusHistory: [],
-  });
+  );
+  await query(
+    `INSERT INTO order_items ("orderId", "productId", "sortOrder", name, size, extras, qty, "unitPrice", "lineTotal")
+     VALUES ($1, NULL, 0, $2, '', '[]'::jsonb, $5, $3, $4)`,
+    [created[0].id, data.name, data.unitPrice, lineTotal, data.qty],
+  );
 };
 
 describe('analytics dashboard periods', () => {
   beforeEach(async () => {
     await seedRoles();
-    await Order.deleteMany({});
+    await query('DELETE FROM orders');
   });
 
   it('computes today/week/month revenue, orders, units and top products', async () => {
@@ -57,12 +53,12 @@ describe('analytics dashboard periods', () => {
 
     // A is always in today; B is always in this week + this month; C is always in this month.
     const bCreatedAt = new Date(Math.max(weekStart.getTime(), monthStart.getTime()) + 60e3);
-    await seedOrder(customer._id, { orderId: now, name: 'Cheese', qty: 2, unitPrice: 150 });
-    await seedOrder(customer._id, { orderId: bCreatedAt, name: 'Chicken', qty: 1, unitPrice: 150 });
-    await seedOrder(customer._id, { orderId: new Date(monthStart.getTime() + 60e3), name: 'Olive', qty: 3, unitPrice: 20 });
-    await seedOrder(customer._id, { orderId: now, name: 'Secret', qty: 9, unitPrice: 999, status: 'cancelled' });
+    await seedOrder(customer.id, { orderId: now, name: 'Cheese', qty: 2, unitPrice: 150 });
+    await seedOrder(customer.id, { orderId: bCreatedAt, name: 'Chicken', qty: 1, unitPrice: 150 });
+    await seedOrder(customer.id, { orderId: new Date(monthStart.getTime() + 60e3), name: 'Olive', qty: 3, unitPrice: 20 });
+    await seedOrder(customer.id, { orderId: now, name: 'Secret', qty: 9, unitPrice: 999, status: 'cancelled' });
 
-    const res = await api.get(DASHBOARD).set(bearer(toId(admin._id))).expect(200);
+    const res = await api.get(DASHBOARD).set(bearer(admin.id)).expect(200);
     const data = res.body.data;
 
     expect(data.periodOverview).toBeDefined();
@@ -99,6 +95,6 @@ describe('analytics dashboard periods', () => {
 
   it('requires analytics read permission', async () => {
     const customer = await createUser({ role: 'customer' });
-    await api.get(DASHBOARD).set(bearer(toId(customer._id))).expect(403);
+    await api.get(DASHBOARD).set(bearer(customer.id)).expect(403);
   });
 });

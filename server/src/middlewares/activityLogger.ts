@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import ActivityLog from '../models/ActivityLog';
+import * as activityLogsRepo from '../db/activityLogs';
 import type { AuthRequest } from './auth';
 
 export const logActivity =
@@ -7,8 +7,8 @@ export const logActivity =
   async (req, res, next): Promise<void> => {
     try {
       const authReq = req as AuthRequest;
-      await ActivityLog.create({
-        actor: authReq.user?.id,
+      await activityLogsRepo.create({
+        actorId: authReq.user?.id,
         role: authReq.user?.role,
         action,
         resource,

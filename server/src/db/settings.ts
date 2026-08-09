@@ -9,9 +9,10 @@ export const getSettingsMap = async (): Promise<Record<string, unknown>> => {
 };
 
 export const upsertSetting = async (key: string, value: unknown): Promise<void> => {
+  const jsonValue = typeof value === 'string' ? JSON.stringify(value) : value;
   await query(
     `INSERT INTO settings (key, value) VALUES ($1, $2::jsonb)
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
-    [key, value],
+    [key, jsonValue],
   );
 };

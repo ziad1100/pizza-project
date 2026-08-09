@@ -1,5 +1,6 @@
 import type { Response } from 'express';
-import User from '../models/User';
+import * as adminUsersRepo from '../db/adminUsers';
+import { apiErrorFromPg } from '../db';
 import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -10,21 +11,8 @@ export const listUsers = asyncHandler(async (req: AuthRequest, res: Response) =>
   const limit = Number(req.query.limit) || 20;
   const search = String(req.query.search || '');
   const role = String(req.query.role || '');
-  const filter: Record<string, unknown> = {};
-  if (role) filter.role = role;
-  if (search) {
-    filter.$or = [{ fullName: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }];
-  }
-  const [users, total] = await Promise.all([
-    User.find(filter)
-      .select('-refreshToken')
-      .sort('-createdAt')
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    User.countDocuments(filter),
-  ]);
-  res.json(new ApiResponse(200, { items: users, total, page, pages: Math.ceil(total / limit) }));
+  const result = await adminUsersRepo.listUsers(page, limit, search, role);
+  res.json(new ApiResponse(200, { ...result, page }));
 });
 
 export const updateUser = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -33,20 +21,26 @@ export const updateUser = asyncHandler(async (req: AuthRequest, res: Response) =
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
   }
-  const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true }).lean();
-  if (!user) throw new ApiError(404, 'User not found');
-  res.json(new ApiResponse(200, user));
+  try {
+    const user = await adminUsersRepo.updateUser(req.params.id, updates);
+    if (!user) throw new ApiError(404, 'User not found');
+    res.json(new ApiResponse(200, user));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
 });
 
 export const deleteUser = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const user = await User.findByIdAndDelete(req.params.id);
-  if (!user) throw new ApiError(404, 'User not found');
-  res.json(new ApiResponse(200, null, 'User deleted'));
+  try {
+    if (!(await adminUsersRepo.deleteUser(req.params.id))) throw new ApiError(404, 'User not found');
+    res.json(new ApiResponse(200, null, 'User deleted'));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
 });
 
 export const getProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const user = await User.findById(req.user!.id).lean();
-  res.json(new ApiResponse(200, user));
+  res.json(new ApiResponse(200, await adminUsersRepo.getProfile(req.user!.id)));
 });
 
 export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -56,6 +50,6 @@ export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
   }
-  const user = await User.findByIdAndUpdate(id, updates, { new: true }).lean();
+  const user = await adminUsersRepo.updateProfile(id, updates);
   res.json(new ApiResponse(200, user));
 });

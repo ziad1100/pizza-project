@@ -1,9 +1,8 @@
 import bcrypt from 'bcryptjs';
-import mongoose from 'mongoose';
 import request from 'supertest';
 import app from '../app';
-import Role from '../models/Role';
-import User from '../models/User';
+import * as usersRepo from '../db/users';
+import { query } from '../db';
 import { PERMISSION_PRESETS, ROLES } from '../constants';
 import { signAccessToken } from '../utils/token';
 
@@ -17,16 +16,14 @@ export const seedRoles = async (): Promise<void> => {
     { name: 'Customer', slug: ROLES.CUSTOMER, description: 'Customer account' },
   ];
   for (const d of defs) {
-    await Role.updateOne(
-      { slug: d.slug },
-      {
-        $set: {
-          name: d.name,
-          description: d.description,
-          permissions: PERMISSION_PRESETS[d.slug as keyof typeof PERMISSION_PRESETS],
-        },
-      },
-      { upsert: true },
+    await query(
+      `INSERT INTO roles (name, slug, description, permissions)
+       VALUES ($1, $2, $3, $4::jsonb)
+       ON CONFLICT (slug) DO UPDATE SET
+         name = EXCLUDED.name,
+         description = EXCLUDED.description,
+         permissions = EXCLUDED.permissions`,
+      [d.name, d.slug, d.description, JSON.stringify(PERMISSION_PRESETS[d.slug as keyof typeof PERMISSION_PRESETS])],
     );
   }
 };
@@ -53,22 +50,45 @@ let userSeq = 0;
 
 export const createUser = async (overrides: UserOverrides = {}) => {
   userSeq += 1;
-  const data = {
-    fullName: 'Test User',
-    email: `test-${Date.now()}-${userSeq}@pizzahouse.test`,
-    phone: '01000000000',
-    password: await bcrypt.hash('Pizza123!', 4),
-    role: ROLES.CUSTOMER,
-    isActive: true,
-    isVerified: true,
-    provider: 'local',
-    ...overrides,
-  };
-  return User.create(data);
+  const {
+    fullName = 'Test User',
+    email = `test-${Date.now()}-${userSeq}@pizzahouse.test`,
+    phone = '01000000000',
+    password = 'Pizza123!',
+    role = ROLES.CUSTOMER,
+    isActive = true,
+    isVerified = true,
+    avatar = '',
+    provider = 'local',
+    providerId = '',
+    emailVerifyToken = null,
+    emailVerifyExpires = null,
+    resetToken,
+    resetTokenExpires,
+  } = overrides;
+
+  const user = await usersRepo.create({
+    fullName,
+    email,
+    phone,
+    passwordHash: await bcrypt.hash(password, 4),
+    role,
+    isActive,
+    isVerified,
+    avatar,
+    provider,
+    providerId,
+    emailVerifyToken,
+    emailVerifyExpires,
+  });
+  if (resetToken !== undefined) {
+    await usersRepo.update(user.id, { resetToken, resetTokenExpires: resetTokenExpires ?? null });
+  }
+  return user;
 };
 
-export const bearer = (userId: string | mongoose.Types.ObjectId): Record<string, string> => ({
-  Authorization: `Bearer ${signAccessToken(String(userId))}`,
+export const bearer = (userId: string): Record<string, string> => ({
+  Authorization: `Bearer ${signAccessToken(userId)}`,
 });
 
-export const toId = (value: mongoose.Types.ObjectId | string): string => String(value);
+export const toId = (value: unknown): string => String(value);

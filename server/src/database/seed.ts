@@ -4,20 +4,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectDB, disconnectDB } from './connection';
-import Role from '../models/Role';
-import User from '../models/User';
-import Category from '../models/Category';
-import Product from '../models/Product';
-import Coupon from '../models/Coupon';
-import Offer from '../models/Offer';
-import Banner from '../models/Banner';
-import Branch from '../models/Branch';
-import Cart from '../models/Cart';
-import Setting, { upsertSetting } from '../models/Setting';
-import Post from '../models/Post';
-import DeliveryZone from '../models/DeliveryZone';
-import Review from '../models/Review';
-import { DEFAULT_SETTINGS, ORDER_STATUS, PERMISSION_PRESETS } from '../constants';
+import { ensureRolePermissions } from './roleSync';
+import * as usersRepo from '../db/users';
+import * as categoriesRepo from '../db/categories';
+import * as productsRepo from '../db/products';
+import * as couponsRepo from '../db/coupons';
+import * as offersRepo from '../db/offers';
+import * as bannersRepo from '../db/banners';
+import * as branchesRepo from '../db/branches';
+import * as deliveryZonesRepo from '../db/deliveryZones';
+import * as postsRepo from '../db/posts';
+import * as reviewsRepo from '../db/reviews';
+import * as cartsRepo from '../db/carts';
+import { upsertSetting } from '../db/settings';
+import { query } from '../db';
+import { DEFAULT_SETTINGS, ORDER_STATUS } from '../constants';
 import { seedSections, seedExtras, bestSellerNames, offerNames, type SeedItem, type SeedSub } from './seedData';
 
 const slugifyEn = (text: string): string =>
@@ -38,41 +39,16 @@ const imageFor = (item: SeedItem, sub: SeedSub): string => {
   return url;
 };
 
-const clearCollections = async (): Promise<void> => {
-  await Promise.all([
-    Role.deleteMany({}),
-    User.deleteMany({}),
-    Category.deleteMany({}),
-    Product.deleteMany({}),
-    Coupon.deleteMany({}),
-    Offer.deleteMany({}),
-    Banner.deleteMany({}),
-    Branch.deleteMany({}),
-    Cart.deleteMany({}),
-    Setting.deleteMany({}),
-    Post.deleteMany({}),
-    DeliveryZone.deleteMany({}),
-    Review.deleteMany({}),
-  ]);
-};
-
-const seedRoles = async (): Promise<void> => {
-  const roleDefs = [
-    { name: 'مدير النظام', nameEn: 'Admin', slug: 'admin', description: 'Full access' },
-    { name: 'مدير', nameEn: 'Manager', slug: 'manager', description: 'Manage content & orders' },
-    { name: 'موظف', nameEn: 'Employee', slug: 'employee', description: 'Orders & reviews' },
-    { name: 'عميل', nameEn: 'Customer', slug: 'customer', description: 'Customer account' },
-  ];
-  for (const r of roleDefs) {
-    await Role.create({
-      name: r.nameEn,
-      slug: r.slug,
-      description: r.description,
-      permissions: PERMISSION_PRESETS[r.slug as keyof typeof PERMISSION_PRESETS],
-    });
-  }
-   
-  console.log('[seed] roles created');
+const clearTables = async (): Promise<void> => {
+  await query(
+    `TRUNCATE TABLE
+       order_items, coupon_redemptions, cart_items, wishlist_items, offer_products,
+       product_sizes, product_extras, reviews, orders, carts, wishlists, offers,
+       coupons, banners, branches, delivery_zones, posts, contacts, newsletters,
+       notifications, categories, products, activity_logs, analytics, permissions,
+       roles, users, settings
+     RESTART IDENTITY CASCADE`,
+  );
 };
 
 const seedUsers = async (): Promise<Record<string, string>> => {
@@ -85,10 +61,9 @@ const seedUsers = async (): Promise<Record<string, string>> => {
   ];
   const ids: Record<string, string> = {};
   for (const u of users) {
-    const created = await User.create({ ...u, password, provider: 'local' });
-    ids[u.role] = String(created._id);
+    const created = await usersRepo.create({ ...u, passwordHash: password, provider: 'local' });
+    ids[u.role] = created.id;
   }
-   
   console.log('[seed] users created (password: Pizza123!)');
   return ids;
 };
@@ -96,7 +71,7 @@ const seedUsers = async (): Promise<Record<string, string>> => {
 const seedCategories = async (): Promise<Record<string, Record<string, string>>> => {
   const map: Record<string, Record<string, string>> = {};
   for (const section of seedSections) {
-    const sectionDoc = await Category.create({
+    const sectionDoc = await categoriesRepo.create({
       name: section.ar,
       nameEn: section.en,
       slug: `section-${slugifyEn(section.en)}`,
@@ -105,22 +80,23 @@ const seedCategories = async (): Promise<Record<string, Record<string, string>>>
       order: Object.keys(map).length,
       isActive: true,
     });
+    if (!sectionDoc) throw new Error('[seed] failed to create section category');
     const subMap: Record<string, string> = {};
     for (const sub of section.subs) {
-      const subDoc = await Category.create({
+      const subDoc = await categoriesRepo.create({
         name: sub.ar,
         nameEn: sub.en,
         slug: `sub-${slugifyEn(section.en)}-${slugifyEn(sub.en)}`,
         type: 'sub',
-        parentId: sectionDoc._id,
+        parentId: sectionDoc._id as string,
         order: Object.keys(subMap).length,
         isActive: true,
       });
+      if (!subDoc) throw new Error('[seed] failed to create sub category');
       subMap[sub.ar] = String(subDoc._id);
     }
     map[section.ar] = subMap;
   }
-   
   console.log('[seed] categories created');
   return map;
 };
@@ -128,7 +104,9 @@ const seedCategories = async (): Promise<Record<string, Record<string, string>>>
 const buildSizes = (prices: [number | null, number | null, number | null]) => {
   const names = ['صغير', 'وسط', 'كبير'];
   const enNames = ['Small', 'Medium', 'Large'];
-  const active = prices.map((p, i) => (p !== null ? { name: names[i], nameEn: enNames[i], price: p as number } : null)).filter(Boolean) as { name: string; nameEn: string; price: number }[];
+  const active = prices
+    .map((p, i) => (p !== null ? { name: names[i], nameEn: enNames[i], price: p as number } : null))
+    .filter(Boolean) as { name: string; nameEn: string; price: number }[];
   if (active.length === 1) {
     return [{ name: 'حجم واحد', nameEn: 'Regular', price: active[0].price }];
   }
@@ -161,7 +139,7 @@ const seedProducts = async (catMap: Record<string, Record<string, string>>): Pro
         const isOffer = offerNames.includes(item.ar);
         const discount = isOffer ? 15 + (bestCounter % 4) * 5 : 0;
         const [description, descriptionEn] = descFor(item.ar, item.en);
-        await Product.create({
+        await productsRepo.create({
           name: item.ar,
           nameEn: item.en,
           slug,
@@ -184,26 +162,32 @@ const seedProducts = async (catMap: Record<string, Record<string, string>>): Pro
       }
     }
   }
-   
   console.log('[seed] products created');
+};
+
+const slugToId = async (slug: string): Promise<string | null> => {
+  const p = await productsRepo.getBySlug(slug);
+  return p ? String(p._id) : null;
+};
+
+const idsForSlugs = async (slugs: string[]): Promise<string[]> => {
+  const ids = await Promise.all(slugs.map(slugToId));
+  return ids.filter((id): id is string => Boolean(id));
 };
 
 const seedCommerce = async (): Promise<void> => {
   const now = new Date();
   const inDays = (d: number) => new Date(now.getTime() + d * 86400000);
 
-  await Coupon.create([
+  for (const c of [
     { code: 'WELCOME20', type: 'percent', value: 20, minOrder: 150, maxDiscount: 100, maxUses: 1000, endDate: inDays(365) },
     { code: 'PIZZA10', type: 'percent', value: 10, minOrder: 100, endDate: inDays(90) },
     { code: 'SAVE30', type: 'fixed', value: 30, minOrder: 250, endDate: inDays(30) },
-  ]);
+  ]) {
+    await couponsRepo.create(c);
+  }
 
-const offerProductIds = async (slugs: string[]): Promise<unknown[]> => {
-  const docs = await Product.find({ slug: { $in: slugs } }).select('_id').lean();
-  return docs.map((d) => d._id);
-};
-
-await Offer.create([
+  const offers: Array<Record<string, unknown>> = [
     {
       title: 'أوفير الأسبوع',
       titleEn: 'Weekend Special',
@@ -213,7 +197,7 @@ await Offer.create([
       discountValue: 50,
       startDate: now,
       endDate: inDays(30),
-      products: await offerProductIds([
+      products: await idsForSlugs([
         'margherita-cheese-italian',
         'chicken-chicken-italian',
         'kranshi-chicken-chicken-italian',
@@ -232,7 +216,7 @@ await Offer.create([
       discountValue: 20,
       startDate: now,
       endDate: inDays(30),
-      products: await offerProductIds([
+      products: await idsForSlugs([
         'kunafa-sweet-feteer-sweet-feteer',
         'mixed-sweets-sweet-feteer-sweet-feteer',
         'lotus-sweet-feteer-sweet-feteer',
@@ -254,44 +238,45 @@ await Offer.create([
       discountValue: 40,
       startDate: now,
       endDate: inDays(30),
-      products: await offerProductIds([
+      products: await idsForSlugs([
         'chicken-mix-mix-italian',
         'meat-mix-mix-italian',
         'cheese-mix-mix-italian',
         'smoked-sweet-mix-mix-italian',
-        'chicken-beef-sausage-mix-italian',
+        'chicken-beef-sausage-mix-mix-italian',
         'chickenpastramimeat-mix-mix-italian',
       ]),
       theme: 'gold',
       isActive: true,
     },
-  ]);
+  ];
+  for (const offer of offers) {
+    await offersRepo.create(offer as never);
+  }
 
-  await Banner.create([
+  for (const banner of [
     { title: 'أفضل بيتزا وفطير في مدينتك', subtitle: '107 صنفًا من الأصالة الإيطالية والشرقية', buttonText: 'عرض المنيو', buttonLink: '/menu', position: 'hero', order: 1, isActive: true },
     { title: 'جوعان؟ اطلب الآن', subtitle: 'عروض يومية على البيتزا والفطير الحلو', buttonText: 'اطلب الآن', buttonLink: '/menu', position: 'home', order: 2, isActive: true },
-  ]);
+  ]) {
+    await bannersRepo.create(banner);
+  }
 
-  await Branch.create([
-    {
-      name: 'مطعم عرابي',
-      nameEn: 'ORABI Restaurant',
-      address: '',
-      addressEn: '',
-      phone: '01070003535',
-      whatsapp: '01070003535',
-      workHours: 'يومياً 10 صباحاً - 3 صباحاً',
-      workHoursEn: 'Daily 10AM - 3AM',
-      isActive: true,
-    },
-  ]);
+  await branchesRepo.create({
+    name: 'مطعم عرابي',
+    nameEn: 'ORABI Restaurant',
+    address: '',
+    addressEn: '',
+    phone: '01070003535',
+    whatsapp: '01070003535',
+    workHours: 'يومياً 10 صباحاً - 3 صباحاً',
+    workHoursEn: 'Daily 10AM - 3AM',
+    isActive: true,
+  });
 
-  await DeliveryZone.create([
-    { name: 'داخل النطاق', nameEn: 'Main zone', fee: 25, minOrder: 100, estimatedMinutes: 30 },
-    { name: 'النطاق الممتد', nameEn: 'Extended zone', fee: 40, minOrder: 150, estimatedMinutes: 45 },
-  ]);
+  await deliveryZonesRepo.create({ name: 'داخل النطاق', nameEn: 'Main zone', fee: 25, minOrder: 100, estimatedMinutes: 30 });
+  await deliveryZonesRepo.create({ name: 'النطاق الممتد', nameEn: 'Extended zone', fee: 40, minOrder: 150, estimatedMinutes: 45 });
 
-await Post.create([
+  for (const post of [
     {
       title: 'أسرار تحضير العجينة الإيطالية الأصلية',
       titleEn: 'Secrets of the authentic Italian dough',
@@ -316,9 +301,10 @@ await Post.create([
       tags: ['فطير', 'تراث'],
       isPublished: true,
     },
-  ]);
+  ]) {
+    await postsRepo.create(post);
+  }
 
-   
   console.log('[seed] commerce data created');
 };
 
@@ -326,11 +312,13 @@ const seedSettings = async (): Promise<void> => {
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
     await upsertSetting(key, value);
   }
-   
   console.log('[seed] settings created');
 };
 
-const seedReviews = async (userIds: Record<string, string>): Promise<void> => {  const products = await Product.find().limit(12).lean();
+const seedReviews = async (userIds: Record<string, string>): Promise<void> => {
+  const products = await query<{ id: string }>(
+    'SELECT id FROM products ORDER BY "createdAt" LIMIT 12',
+  );
   const comments = [
     'أحلى وجبات في المنطقة، الطعم رائع!',
     'الفراخ المقرمشة ولا أروع، دائمًا طازجة',
@@ -341,15 +329,8 @@ const seedReviews = async (userIds: Record<string, string>): Promise<void> => { 
   ];
   for (const [i, product] of products.entries()) {
     const rating = 4 + (i % 2);
-    await Review.create({
-      user: userIds.customer,
-      product: product._id,
-      rating,
-      comment: comments[i % comments.length],
-      isApproved: true,
-    });
+    await reviewsRepo.create(userIds.customer, product.id, rating, comments[i % comments.length]);
   }
-   
   console.log('[seed] reviews created');
 };
 
@@ -359,32 +340,31 @@ const seedCart = async (userIds: Record<string, string>): Promise<void> => {
     { nameEn: 'Margherita', qty: 1 },
     { nameEn: 'Chocolate', qty: 1 },
   ];
-  const items: { product: unknown; size: null; sizeName: string; extras: unknown[]; qty: number; unitPrice: number }[] = [];
   for (const w of wanted) {
-    const product = await Product.findOne({ nameEn: w.nameEn, isAvailable: true }).lean();
+    const rows = await query<{ id: string; basePrice: string }>(
+      `SELECT id, "basePrice" FROM products WHERE "nameEn" = $1 AND "isAvailable" = true ORDER BY "createdAt" LIMIT 1`,
+      [w.nameEn],
+    );
+    const product = rows[0];
     if (product) {
-      items.push({
-        product: product._id,
+      await cartsRepo.addItem(userIds.customer, {
+        product: product.id,
         size: null,
         sizeName: '',
         extras: [],
         qty: w.qty,
-        unitPrice: product.basePrice,
+        unitPrice: Number(product.basePrice),
       });
     }
-  }
-  if (items.length) {
-    await Cart.create({ user: userIds.customer, items, couponCode: '' });
   }
   console.log('[seed] cart seeded for customer demo account');
 };
 
 const run = async (): Promise<void> => {
-   
   console.log('[seed] connecting...');
   await connectDB();
-  await clearCollections();
-  await seedRoles();
+  await ensureRolePermissions();
+  await clearTables();
   const userIds = await seedUsers();
   const catMap = await seedCategories();
   await seedProducts(catMap);
@@ -393,18 +373,16 @@ const run = async (): Promise<void> => {
   await seedReviews(userIds);
   await seedCart(userIds);
 
-  const counts = {
-    products: await Product.countDocuments(),
-    categories: await Category.countDocuments(),
-    users: await User.countDocuments(),
-  };
-   
-  console.log('[seed] DONE', counts, `(orders statuses: ${Object.values(ORDER_STATUS).join(', ')})`);
+  const counts = await query<{ products: string; categories: string; users: string }>(
+    `SELECT (SELECT count(*) FROM products)::int::text AS products,
+            (SELECT count(*) FROM categories)::int::text AS categories,
+            (SELECT count(*) FROM users)::int::text AS users`,
+  );
+  console.log('[seed] DONE', counts[0], `(orders statuses: ${Object.values(ORDER_STATUS).join(', ')})`);
   await disconnectDB();
 };
 
 run().catch(async (err) => {
-   
   console.error('[seed] FAILED', err);
   await disconnectDB();
   process.exit(1);

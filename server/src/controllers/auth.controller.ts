@@ -9,7 +9,7 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { clearAuthCookies, setAuthCookies, REFRESH_COOKIE_NAME } from '../utils/cookies';
 import { generateEmailCode, generateEmailToken, verifyRefreshToken } from '../utils/token';
-import { sendPasswordResetOtpEmail, sendVerificationEmail } from '../services/email.service';
+import { enqueuePasswordResetOtp, enqueueVerificationEmail } from '../services/email.service';
 import { ROLES } from '../constants';
 
 export const getUserWithRole = async (id: string) => {
@@ -59,7 +59,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     throw apiErrorFromPg(err);
   }
 
-  await sendVerificationEmail(email, emailVerifyToken);
+  await enqueueVerificationEmail(email, emailVerifyToken);
 
   const { accessToken } = setAuthCookies(res, user.id);
   res.status(201).json(
@@ -145,7 +145,7 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
       resetToken: token,
       resetTokenExpires: new Date(Date.now() + 15 * 60 * 1000),
     });
-    await sendPasswordResetOtpEmail(email, token);
+    await enqueuePasswordResetOtp(email, token);
   }
   // Always respond the same to avoid user enumeration
   res.json(new ApiResponse(200, devPayload, 'If the email exists, a reset link was sent'));

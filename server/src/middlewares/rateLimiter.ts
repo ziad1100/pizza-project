@@ -6,4 +6,5 @@ export const authLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Too many auth attempts, please try again later.' },
+  skip: () => process.env.DISABLE_RATE_LIMIT === '1',
 });

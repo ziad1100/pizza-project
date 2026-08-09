@@ -4,7 +4,7 @@ import { requireAuth, requirePermission } from '../middlewares/auth';
 import { logActivity } from '../middlewares/activityLogger';
 import { zodBody } from '../middlewares/zod';
 import { adminUpdateUserSchema } from '../schemas';
-import ActivityLog from '../models/ActivityLog';
+import * as activityLogsRepo from '../db/activityLogs';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -21,11 +21,8 @@ router.get(
   asyncHandler(async (req, res) => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 25;
-    const [items, total] = await Promise.all([
-      ActivityLog.find().populate('actor', 'fullName email').sort('-createdAt').skip((page - 1) * limit).limit(limit).lean(),
-      ActivityLog.countDocuments(),
-    ]);
-    res.json(new ApiResponse(200, { items, total, page, pages: Math.ceil(total / limit) }));
+    const result = await activityLogsRepo.list(page, limit);
+    res.json(new ApiResponse(200, { ...result, page }));
   }),
 );
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import Coupon from '../models/Coupon';
+import * as couponsRepo from '../db/coupons';
 import { COUPON_TYPES } from '../constants';
 import { incrementCouponUsage, validateCoupon } from './coupon.service';
 
 const seedCoupon = (overrides: Record<string, unknown> = {}) =>
-  Coupon.create({
+  couponsRepo.create({
     code: 'SAVE10',
     name: 'Save 10',
     type: COUPON_TYPES.PERCENT,
@@ -94,7 +94,7 @@ describe('incrementCouponUsage', () => {
   it('increments the usedCount', async () => {
     await seedCoupon();
     await incrementCouponUsage('save10');
-    const coupon = await Coupon.findOne({ code: 'SAVE10' }).lean();
+    const coupon = await couponsRepo.getByCode('SAVE10');
     expect(coupon?.usedCount).toBe(1);
   });
 });

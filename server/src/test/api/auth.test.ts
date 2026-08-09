@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import User from '../../models/User';
+import * as usersRepo from '../../db/users';
 import { api, bearer, createUser, seedRoles, toId } from '../helpers';
 
 vi.mock('../../middlewares/rateLimiter', () => ({
@@ -102,9 +102,9 @@ describe('me', () => {
     await seedRoles();
   });
 
-  it('returns the profile with a valid token', async () => {
+it('returns the profile with a valid token', async () => {
     const user = await createUser();
-    const res = await api.get(`${AUTH}/me`).set(bearer(toId(user._id)));
+    const res = await api.get(`${AUTH}/me`).set(bearer(user.id));
     expect(res.status).toBe(200);
     expect(res.body.data.email).toBe(user.email);
     expect(res.body.data.permissions).toMatchObject({});
@@ -137,7 +137,7 @@ describe('refresh', () => {
     const first = await api.post(`${AUTH}/refresh`).set('Cookie', oldCookie);
     expect(first.status).toBe(200);
     expect(first.body.data.accessToken).toBeTruthy();
-    const user = await User.findOne({ email: 'session@pizzahouse.test' }).select('+refreshToken');
+    const user = await usersRepo.getByEmail('session@pizzahouse.test');
     expect(user?.refreshToken).not.toBe(oldCookie.split('=')[1]);
   });
 
@@ -163,7 +163,7 @@ describe('logout', () => {
 
   it('clears the auth cookies', async () => {
     const user = await createUser();
-    const res = await api.post(`${AUTH}/logout`).set(bearer(toId(user._id)));
+    const res = await api.post(`${AUTH}/logout`).set(bearer(toId(user.id)));
     expect(res.status).toBe(200);
     const cookies = res.headers['set-cookie'] as unknown as string[];
     const cleared = cookies.filter((c) => /refreshToken=;|accessToken=;/.test(c));
@@ -178,12 +178,12 @@ describe('email verification', () => {
 
   it('verifies an email with a valid token, then rejects reuse', async () => {
     await register();
-    const user = await User.findOne({ email: 'fresh@example.com' }).select('+emailVerifyToken');
+    const user = await usersRepo.getByEmail('fresh@example.com');
     const ok = await api.get(`${AUTH}/verify-email`).query({ token: user!.emailVerifyToken });
     expect(ok.status).toBe(200);
     const again = await api.get(`${AUTH}/verify-email`).query({ token: user!.emailVerifyToken });
     expect(again.status).toBe(400);
-    const after = await User.findById(user!._id).lean();
+    const after = await usersRepo.getById(user!.id);
     expect(after?.isVerified).toBe(true);
   });
 
@@ -210,7 +210,7 @@ describe('forgot & reset password', () => {
   it('sets a reset token for the account', async () => {
     await createUser({ email: 'known@pizzahouse.test' });
     await api.post(`${AUTH}/forgot-password`).send({ email: 'known@pizzahouse.test' });
-    const user = await User.findOne({ email: 'known@pizzahouse.test' }).select('+resetToken');
+    const user = await usersRepo.getByEmail('known@pizzahouse.test');
     expect(user?.resetToken).toBeTruthy();
   });
 
@@ -262,7 +262,7 @@ describe('change password', () => {
 
   it('changes the password and allows login with the new one', async () => {
     const user = await createUser({ email: 'changeme@pizzahouse.test' });
-    const auth = bearer(toId(user._id));
+    const auth = bearer(toId(user.id));
     const res = await api.post(`${AUTH}/change-password`).set(auth).send({ currentPassword: 'Pizza123!', newPassword: 'Rotated123' });
     expect(res.status).toBe(200);
     const login = await api.post(`${AUTH}/login`).send({ email: 'changeme@pizzahouse.test', password: 'Rotated123' });
@@ -273,7 +273,7 @@ describe('change password', () => {
     const user = await createUser({ email: 'neweme@pizzahouse.test' });
     const res = await api
       .post(`${AUTH}/change-password`)
-      .set(bearer(toId(user._id)))
+      .set(bearer(toId(user.id)))
       .send({ currentPassword: 'WrongPass1', newPassword: 'Rotated123' });
     expect(res.status).toBe(400);
   });

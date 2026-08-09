@@ -1,19 +1,19 @@
 import type { Request, Response } from 'express';
-import { Types } from 'mongoose';
-import Order from '../models/Order';
-import Product from '../models/Product';
-import User from '../models/User';
-import Analytics from '../models/Analytics';
-import Notification from '../models/Notification';
+import * as ordersRepo from '../db/orders';
+import * as usersRepo from '../db/users';
+import * as analyticsRepo from '../db/analytics';
+import { apiErrorFromPg, query } from '../db';
+import { PUBLIC_COLS } from '../db/products';
+import { sendToUsers } from '../db/notifications';
 import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { generateOrderNo } from '../utils';
 import type { AuthRequest } from '../middlewares/auth';
 import { validateCoupon } from '../services/coupon.service';
-import { sendOrderConfirmation } from '../services/email.service';
+import { enqueueOrderConfirmation } from '../services/email.service';
 import { ORDER_STATUS, PAYMENT_METHODS } from '../constants';
-import { getSettingsMap } from '../models/Setting';
+import { getSettingsMap } from '../db/settings';
 
 interface OrderItemInput {
   product: string;
@@ -32,25 +32,31 @@ export const createOrder = asyncHandler(async (req: AuthRequest, res: Response) 
 
   const items = rawItems as OrderItemInput[];
   const productIds = items.map((i) => i.product);
-  const products = await Product.find({ _id: { $in: productIds } }).lean();
-  const productMap = new Map(products.map((p) => [String(p._id), p]));
+  const productRows = (await query(
+    `SELECT ${PUBLIC_COLS} FROM products p WHERE p.id = ANY($1::uuid[])`,
+    [productIds],
+  )) as Array<Record<string, unknown>>;
+  const productMap = new Map(productRows.map((p) => [String(p._id), p]));
 
   let subtotal = 0;
   const orderItems = items.map((item) => {
     const product = productMap.get(String(item.product));
     if (!product) throw new ApiError(404, 'Product not found in order');
-    const size = product.sizes.find((s) => String(s._id) === String(item.size));
-    const unitPrice = size?.price ?? product.basePrice;
+    const sizes = (product.sizes as Array<{ _id: string; price: number; name: string }>) ?? [];
+    const size = sizes.find((s) => String(s._id) === String(item.size));
+    const unitPrice = size?.price ?? (product.basePrice as number) ?? 0;
     const extras = (item.extras ?? []).map((e) => {
-      const dbExtra = product.extras.find((p) => p.name === e.name || p.nameEn === e.name);
+      const dbExtra = ((product.extras as Array<{ name: string; nameEn: string; price: number }>) ?? []).find(
+        (p) => p.name === e.name || p.nameEn === e.name,
+      );
       return dbExtra ? { name: dbExtra.name, price: dbExtra.price } : { name: e.name, price: Number(e.price) || 0 };
     });
     const extrasTotal = extras.reduce((acc, e) => acc + (Number(e.price) || 0), 0);
     const lineTotal = (unitPrice + extrasTotal) * Math.max(1, item.qty);
     subtotal += lineTotal;
     return {
-      product: product._id,
-      name: product.name,
+      productId: product._id as string,
+      name: product.name as string,
       size: size?.name ?? '',
       extras,
       qty: Math.max(1, item.qty),
@@ -80,81 +86,73 @@ export const createOrder = asyncHandler(async (req: AuthRequest, res: Response) 
 
   const total = Math.max(0, subtotal + deliveryFee - discount);
 
-  const orderNo = await generateOrderNo();
-  const payment = {
-    method: Object.values(PAYMENT_METHODS).includes(paymentMethod) ? paymentMethod : PAYMENT_METHODS.CASH,
-    status: paymentMethod === PAYMENT_METHODS.CARD ? 'pending' : 'pending',
-    amount: total,
-  };
+  const method = Object.values(PAYMENT_METHODS).includes(paymentMethod) ? paymentMethod : PAYMENT_METHODS.CASH;
 
-  const order = await (async () => {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        return await Order.create({
-          orderNo,
-          user: new Types.ObjectId(userId),
-          items: orderItems,
-          subtotal,
-          deliveryFee,
-          discount,
-          couponCode: couponCode?.toUpperCase() ?? '',
-          total,
-          payment,
-          status: ORDER_STATUS.PENDING,
-          deliveryAddress: address,
-          phone,
-          customerName: req.body.customerName || 'عميل',
-          notes,
-          statusHistory: [{ status: ORDER_STATUS.PENDING, changedBy: new Types.ObjectId(userId), at: new Date() }],
-        });
-      } catch (err) {
-        if ((err as { code?: number })?.code === 11000 && attempt < 2) {
-          continue;
-        }
-        throw err;
+  let order: Record<string, unknown> | null = null;
+  const statusHistory = [{ status: ORDER_STATUS.PENDING, changedBy: userId, at: new Date() }];
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const orderNo = await generateOrderNo();
+    try {
+      order = await ordersRepo.placeOrder({
+        orderNo,
+        userId,
+        items: orderItems,
+        subtotal,
+        deliveryFee,
+        discount,
+        couponCode: couponCode?.toUpperCase() ?? '',
+        total,
+        paymentMethod: method,
+        paymentReference: '',
+        paymentAmount: total,
+        deliveryAddress: address,
+        phone,
+        customerName: req.body.customerName || 'عميل',
+        notes: notes ?? '',
+        statusHistory,
+      });
+      break;
+    } catch (err) {
+      // duplicate orderNo (rare collision) — retry with a fresh number
+      if ((err as { code?: string })?.code === '23505' && attempt < 2) {
+        continue;
       }
+      throw err;
     }
-    throw new ApiError(500, 'Could not create order');
-  })();
+  }
+  if (!order) throw new ApiError(500, 'Could not create order');
 
-  const senderEmail = (await User.findById(userId).select('email').lean())?.email ?? '';
-  void sendOrderConfirmation(senderEmail, orderNo, total).catch(() => undefined);
+  const senderEmail = (await usersRepo.getById(userId))?.email ?? '';
+  void enqueueOrderConfirmation(senderEmail, (order.orderNo as string) ?? '', (order.total as number) ?? total).catch(() => undefined);
 
-  const today = new Date().toISOString().slice(0, 10);
-  await Analytics.updateOne(
-    { date: today },
-    {
-      $inc: { revenue: total, orders: 1 },
-    },
-    { upsert: true },
-  );
+  await analyticsRepo.bumpDailyStats(new Date().toISOString().slice(0, 10), (order.total as number) ?? total);
 
   res.status(201).json(new ApiResponse(201, order, 'Order created successfully'));
 });
 
 export const cancelOrder = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const order = await Order.findOne({ _id: req.params.id, user: req.user!.id });
+  const order = await ordersRepo.getByUserAndId(req.user!.id, req.params.id);
   if (!order) throw new ApiError(404, 'Order not found');
   if (order.status !== ORDER_STATUS.PENDING) {
     throw new ApiError(400, 'Only pending orders can be cancelled');
   }
-  order.status = ORDER_STATUS.CANCELLED;
-  order.statusHistory?.push({ status: ORDER_STATUS.CANCELLED, changedBy: new Types.ObjectId(req.user!.id) });
-  await order.save();
-  res.json(new ApiResponse(200, order, 'Order cancelled'));
+  const updated = await ordersRepo.cancel(req.params.id, req.user!.id, [
+    { status: ORDER_STATUS.CANCELLED, changedBy: req.user!.id, at: new Date() },
+  ]);
+  res.json(new ApiResponse(200, updated, 'Order cancelled'));
 });
 
 export const updateStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status } = req.body;
   if (!Object.values(ORDER_STATUS).includes(status)) throw new ApiError(400, 'Invalid status');
-  const order = await Order.findByIdAndUpdate(
+  const order = await ordersRepo.updateStatus(
     req.params.id,
-    { status, $push: { statusHistory: { status, changedBy: new Types.ObjectId(req.user!.id), at: new Date() } } },
-    { new: true },
+    status,
+    [{ status, changedBy: req.user!.id, at: new Date() }],
   );
   if (!order) throw new ApiError(404, 'Order not found');
-  await Notification.create({
-    user: order.user,
+  await sendToUsers({
+    userIds: [order.user as string],
     title: `حالة الطلب ${order.orderNo}`,
     titleEn: `Order ${order.orderNo} status`,
     body: `تم تحديث حالة طلبك إلى ${status}`,
@@ -168,13 +166,8 @@ export const updateStatus = asyncHandler(async (req: AuthRequest, res: Response)
 export const history = asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
-  const skip = (page - 1) * limit;
-  const filter = { user: req.user!.id };
-  const [items, total] = await Promise.all([
-    Order.find(filter).sort('-createdAt').skip(skip).limit(limit).lean(),
-    Order.countDocuments(filter),
-  ]);
-  res.json(new ApiResponse(200, { items, total, page, pages: Math.max(1, Math.ceil(total / limit)), limit }));
+  const result = await ordersRepo.listByUser(req.user!.id, page, limit);
+  res.json(new ApiResponse(200, { ...result, page, limit }));
 });
 
 export const adminList = asyncHandler(async (req: Request, res: Response) => {
@@ -182,35 +175,14 @@ export const adminList = asyncHandler(async (req: Request, res: Response) => {
   const limit = Number(req.query.limit) || 20;
   const status = String(req.query.status || '');
   const q = String(req.query.q || '');
-  const filter: Record<string, unknown> = {};
-  if (status) filter.status = status;
-  if (q) {
-    filter.$or = [
-      { orderNo: { $regex: q, $options: 'i' } },
-      { customerName: { $regex: q, $options: 'i' } },
-      { phone: { $regex: q, $options: 'i' } },
-    ];
+  try {
+    const result = await ordersRepo.adminList(page, limit, status, q);
+    res.json(new ApiResponse(200, { ...result, page }));
+  } catch (err) {
+    throw apiErrorFromPg(err);
   }
-  const [items, total] = await Promise.all([
-    Order.find(filter).populate('user', 'fullName email phone').sort('-createdAt').skip((page - 1) * limit).limit(limit).lean(),
-    Order.countDocuments(filter),
-  ]);
-  res.json(new ApiResponse(200, { items, total, page, pages: Math.ceil(total / limit) }));
 });
 
 export const stats = asyncHandler(async (_req: Request, res: Response) => {
-  const [total, orders, revenueAgg, pending] = await Promise.all([
-    Order.countDocuments(),
-    Order.countDocuments(),
-    Order.aggregate([{ $match: { status: { $ne: ORDER_STATUS.CANCELLED } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
-    Order.countDocuments({ status: ORDER_STATUS.PENDING }),
-  ]);
-  res.json(
-    new ApiResponse(200, {
-      totalOrders: total,
-      completedOrders: orders,
-      revenue: revenueAgg[0]?.total ?? 0,
-      pendingOrders: pending,
-    }),
-  );
+  res.json(new ApiResponse(200, await ordersRepo.stats()));
 });

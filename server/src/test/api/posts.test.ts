@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import Post from '../../models/Post';
+﻿import { beforeEach, describe, expect, it } from 'vitest';
+import * as postsRepo from '../../db/posts';
 import { api, bearer, createUser, seedRoles, toId } from '../helpers';
 
 const POSTS = '/api/v1/posts';
@@ -7,12 +7,11 @@ const POSTS = '/api/v1/posts';
 describe('posts', () => {
   beforeEach(async () => {
     await seedRoles();
-    await Post.deleteMany({});
   });
 
   it('creates posts with unique slugs for duplicate titles', async () => {
     const admin = await createUser({ role: 'admin' });
-    const auth = bearer(toId(admin._id));
+    const auth = bearer(admin.id);
 
     const first = await api
       .post(POSTS)
@@ -38,7 +37,7 @@ describe('posts', () => {
 
   it('validates missing title with 422', async () => {
     const admin = await createUser({ role: 'admin' });
-    const res = await api.post(POSTS).set(bearer(toId(admin._id))).send({ content: 'بدون عنوان' });
+    const res = await api.post(POSTS).set(bearer(admin.id)).send({ content: 'بدون عنوان' });
     expect(res.status).toBe(422);
   });
 
@@ -46,14 +45,14 @@ describe('posts', () => {
     const customer = await createUser({ role: 'customer' });
     const res = await api
       .post(POSTS)
-      .set(bearer(toId(customer._id)))
+      .set(bearer(customer.id))
       .send({ title: 'ممنوع', content: 'x' });
     expect(res.status).toBe(403);
   });
 
   it('lists only published posts publicly and all posts for admin', async () => {
     const admin = await createUser({ role: 'admin' });
-    const auth = bearer(toId(admin._id));
+    const auth = bearer(admin.id);
     await api.post(POSTS).set(auth).send({ title: 'منشور', titleEn: 'Visible', isPublished: true }).expect(201);
     await api.post(POSTS).set(auth).send({ title: 'مسودة', titleEn: 'Draft', isPublished: false }).expect(201);
 
@@ -67,7 +66,7 @@ describe('posts', () => {
 
   it('re-slugs on update when the title changes, keeping a stable slug otherwise', async () => {
     const admin = await createUser({ role: 'admin' });
-    const auth = bearer(toId(admin._id));
+    const auth = bearer(admin.id);
     const created = await api
       .post(POSTS)
       .set(auth)
@@ -92,9 +91,10 @@ describe('posts', () => {
 
   it('deletes a post', async () => {
     const admin = await createUser({ role: 'admin' });
-    const auth = bearer(toId(admin._id));
+    const auth = bearer(admin.id);
     const created = await api.post(POSTS).set(auth).send({ title: 'سيحذف', titleEn: 'Delete Me' }).expect(201);
     await api.delete(`${POSTS}/${toId(created.body.data._id)}`).set(auth).expect(200);
-    expect(await Post.findById(created.body.data._id)).toBeNull();
+    expect(await postsRepo.getById(created.body.data._id)).toBeNull();
   });
 });
+

@@ -506,9 +506,9 @@ DECLARE t text;
 BEGIN
   FOR t IN SELECT unnest(ARRAY[
     'users', 'roles', 'permissions', 'categories', 'products', 'product_sizes',
-    'product_extras', 'carts', 'cart_items', 'orders', 'reviews', 'coupons',
+    'product_extras', 'carts', 'orders', 'reviews', 'coupons',
     'offers', 'banners', 'branches', 'delivery_zones', 'settings', 'posts',
-    'contacts', 'newsletters', 'notifications', 'wishlists', 'wishlist_items',
+    'contacts', 'newsletters', 'notifications', 'wishlists',
     'analytics'
   ]) LOOP
     EXECUTE format('CREATE TRIGGER %I_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION set_updated_at();', t, t);

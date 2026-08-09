@@ -41,7 +41,7 @@ export const create = async (data: {
   order?: number;
   isActive?: boolean;
   parentId?: string | null;
-}): Promise<Record<string, unknown> | null> => {
+}): Promise<Record<string, unknown>> => {
   let id = '';
   await withTransaction(async (tx) => {
     const inserted = await tx.query<{ id: string }>(
@@ -56,8 +56,7 @@ export const create = async (data: {
     id = inserted.rows[0].id;
   });
   const created = await getById(id);
-  if (!created) return null;
-  return created;
+  return created as Record<string, unknown>;
 };
 
 export const update = async (

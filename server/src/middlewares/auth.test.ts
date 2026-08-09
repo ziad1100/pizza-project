@@ -70,11 +70,11 @@ describe('requireAuth', () => {
 
   it('attaches id, role and permissions from a valid token', async () => {
     const user = await createUser({ role: ROLES.ADMIN });
-    const req = { headers: { authorization: `Bearer ${signAccessToken(String(user._id))}` } } as unknown as AuthRequest;
+    const req = { headers: { authorization: `Bearer ${signAccessToken(user.id)}` } } as unknown as AuthRequest;
     const { next, getErr } = nextFn();
     await requireAuth(req, mockRes(), next);
     expect(getErr()).toBeNull();
-    expect(req.user).toMatchObject({ id: String(user._id), role: ROLES.ADMIN });
+    expect(req.user).toMatchObject({ id: user.id, role: ROLES.ADMIN });
     expect(req.user?.permissions.orders).toContain('create');
     expect(req.user?.permissions.settings).toContain('delete');
   });
@@ -102,7 +102,7 @@ describe('requireAuth', () => {
 
   it('denies with 401 for a deactivated account', async () => {
     const user = await createUser({ role: ROLES.CUSTOMER, isActive: false });
-    const req = { headers: { authorization: `Bearer ${signAccessToken(String(user._id))}` } } as unknown as AuthRequest;
+    const req = { headers: { authorization: `Bearer ${signAccessToken(user.id)}` } } as unknown as AuthRequest;
     const { next, getErr } = nextFn();
     await requireAuth(req, mockRes(), next);
     expect((getErr() as ApiError).statusCode).toBe(401);

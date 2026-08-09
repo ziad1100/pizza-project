@@ -1,10 +1,10 @@
 import { query } from './index';
 
 export const POST_COLS = `
-  po.id::text AS "_id",
-  po.title, po."titleEn", po.slug, po.excerpt, po."excerptEn",
-  po.content, po."contentEn", po.image, po.tags,
-  po."publishedAt", po."isPublished", po."createdAt", po."updatedAt"`;
+  p.id::text AS "_id",
+  p.title, p."titleEn", p.slug, p.excerpt, p."excerptEn",
+  p.content, p."contentEn", p.image, p.tags,
+  p."publishedAt", p."isPublished", p."createdAt", p."updatedAt"`;
 
 interface Page<T> {
   items: T[];

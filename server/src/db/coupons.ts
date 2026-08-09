@@ -67,7 +67,10 @@ export const incrementUsedCount = async (code: string): Promise<void> => {
   await query(`UPDATE coupons SET "usedCount" = "usedCount" + 1 WHERE code = $1`, [code]);
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const countRedemptionsForUser = async (couponId: string, userId: string): Promise<number> => {
+  if (!UUID_RE.test(userId) || !UUID_RE.test(couponId)) return 0;
   const rows = await query<{ n: string }>(
     `SELECT count(*) AS n FROM coupon_redemptions WHERE "couponId" = $1::uuid AND "userId" = $2::uuid`,
     [couponId, userId],

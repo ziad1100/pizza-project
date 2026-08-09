@@ -66,7 +66,12 @@ export const invalidateCache = (...resources: CacheResource[]) => {
   return async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     const onFinish = async (): Promise<void> => {
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        await Promise.all(resources.flatMap((r) => resourceKeys(r)).map((k) => cache.del(k)));
+        await Promise.all(
+          resources.flatMap((r) => {
+            const [exact, pattern] = resourceKeys(r);
+            return [cache.del(exact), cache.delPattern(pattern)];
+          }),
+        );
       }
     };
     res.on('finish', () => {
