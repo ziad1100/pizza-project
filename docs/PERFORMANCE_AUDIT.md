@@ -1,149 +1,103 @@
 # PERFORMANCE_AUDIT.md
 
-Baseline performance audit of the ORABI restaurant e-commerce application.
-Captured: 2026-08-07 against `docker compose` stack (mongo:7 + app) at ~107 products / 24 categories / small order set.
+Performance audit of the ORABI restaurant e-commerce application.
+Captured: 2026-08-09 against the PostgreSQL stack (Postgres + Redis cache + BullMQ workers) at ~100+ products / 24 categories / small order set.
 
-> Deviation note: the source prompt mandates Supabase/PostgreSQL. This project's source of
-> truth is **MongoDB (Mongoose)** — approved decision. Redis/BullMQ/k6 adapters are added on
-> top of the existing stack. Nothing here weakens authn/z, validation, or correctness.
+> Stack note: the source prompt mandates Supabase/PostgreSQL. The app now runs entirely on
+> **PostgreSQL** (Mongoose/MongoDB removed). Redis is a cache layer, BullMQ drives email +
+> analytics rollups, and k6 (container-only) runs the load scenarios. Nothing here weakens
+> authn/z, validation, or correctness.
 
 ## Measurement approach
 
 - **Latency**: in-app middleware (`server/src/middlewares/diagnostics.ts`) records per-route
   p50/p90/p95/p99 with a 60s rolling window; `perfSummaryTimer` logs every 60s and on shutdown.
-- **Query plans**: `npx tsx src/scripts/explain.ts` runs `cursor.explain('executionStats')`
-  against the live database for the hot queries below.
-- **Dataset**: current catalog is small (107 products). All numbers are therefore favorable;
-  the audit focuses on *patterns* that degrade as data grows (1k→10k+).
+- **Query plans**: run `EXPLAIN (ANALYZE)` against the live database for the hot queries
+  (all are plain parameterized SQL in `server/src/db/*.ts`).
+- **Load numbers**: k6 scenarios in `k6/` — see `docs/LOAD_TESTS.md` for commands and results.
+- **Dataset**: current catalog is small (~100 products). Numbers are favorable; the audit
+  focuses on *patterns* that degrade as data grows (1k→10k+).
 
-## Baseline query plans (executionStats)
+## Hot queries (PostgreSQL)
 
-| Query | Stage | Keys Examined | Docs Examined | Time |
-|---|---|---|---|---|
-| product by slug | LIMIT | 1 | 1 | 0ms |
-| products by category | SORT | 8 | 8 | 2ms |
-| products bestsellers | SORT | **0** | **107** | 0ms |
-| products offers | SORT | **0** | **107** | 0ms |
-| product search (regex) | LIMIT | **0** | 34 | 0ms |
-| product list (available) | SORT | **0** | **107** | 1ms |
-| reviews by product | SORT | 1 | 1 | 1ms |
-| categories active | SORT | 0 | 24 | 1ms |
-| order history by user | SORT | 0 | 0 | 0ms |
+| Query | Access path | Note |
+|---|---|---|
+| product by slug | index on `products.slug` | unique slug index |
+| products list (filter/sort/page) | index on `products (isAvailable)` + sort keys | `LIMIT/OFFSET` pagination |
+| bestsellers / offers | same filtered index, `LIMIT 10` | reads only returned rows |
+| product search | `ILIKE '%…%'` on name/nameEn | sequential scan by design at this size (F2) |
+| reviews by product | `reviews (productId, isApproved, createdAt)` | served from index |
+| order history by user | `orders (userId, createdAt)` | paginated |
+| dashboard | `analytics` daily rollup rows (1 row/day) | no full-table aggregates on request |
 
-## Query plans after Phase 1 (indexes + pagination)
-
-Re-run with the same dataset after `Product`/`Category`/`Order`/`Review` compound indexes
-were created (`explain.ts` now calls `createIndexes()` before probing).
-
-| Query | Stage | Keys Examined | Docs Examined | Time |
-|---|---|---|---|---|
-| product by slug | LIMIT | 1 | 1 | 9ms |
-| products by category | LIMIT | 8 | 8 | 12ms |
-| products bestsellers | LIMIT | **10** | **10** | 10ms |
-| products offers | LIMIT | **10** | **10** | 9ms |
-| product search (regex) | LIMIT | **35** | 35 | 16ms |
-| product list (available) | LIMIT | **12** | **12** | 10ms |
-| reviews by product | FETCH | **1** | 1 | 4ms |
-| categories active | FETCH | **24** | 24 | 2ms |
-| order history by user | FETCH | 0 | 0 | 9ms |
-
-Collection scans eliminated: bestsellers/offers/list went from 107 docs examined to ≈ returned
-rows. `reviews:byProduct` and `categories:active` moved off in-memory SORT onto the new
-compound indexes (FETCH = index covered equality, docs read via index). Regex search remains a
-scan by design (F2).
+All list/review/history endpoints are paginated (default 10-12, max 50).
 
 ## Findings
 
-### F1 — Unindexed hot collection scans (products)
-`products:list`, `bestsellers`, and `offers` scan all 107 product docs because there is no
-compound index covering `isAvailable` + sort/flag fields. Invisible at 107 rows; at 10k+ this
-is a full collection scan per public menu render.
+### F1 — Unindexed hot collection scans (products) — done
+`products:list`, `bestsellers`, and `offers` used to scan every product row. The migration
+ships indexes on the filter/flag/sort columns (`isAvailable`, `isBestSeller`, `isOffer`,
+`categoryId`, `rating`, `createdAt`) so these queries read ≈ returned rows.
 
-**Optimization**: compound indexes
-- `{ isAvailable: 1, isBestSeller: -1, rating: -1, createdAt: -1 }`
-- `{ isAvailable: 1, isOffer: -1, discount: -1, createdAt: -1 }`
-- `{ isAvailable: 1, category: 1, createdAt: -1 }` (category listing)
+### F2 — Regex/ILIKE search does not use an index — pending
+`listProducts` uses `ILIKE '%…%'` on name + nameEn. Trivial at ~100 rows; the growth path is
+`pg_trgm` GIN indexes on the search columns once the catalog exceeds a few thousand rows.
+Scoped search (name/nameEn first, then widen) is already in place.
 
-**Expected result**: keys examined ≈ returned rows instead of 107.
-**Measured result**: keysEx = returned rows on `list`/`bestsellers`/`offers` (see post-Phase-1
-table); scans eliminated.
+### F3 — Unbounded order history — done
+`order.controller.ts:history` was unbounded; now paginated (`page/limit`, default 10, max 50)
+with `{ items, total, page, pages, limit }` and an `orders (userId, createdAt)` index.
 
-### F2 — Regex search ignores the text index
-`listProducts` uses `$regex` with `i` on 4 fields + 2 arrays; MongoDB cannot use the existing
-`text` index for regex. Current cost is trivial (107 docs), but the pattern does not scale.
+### F4 — Unbounded reviews list — done
+`review.controller.ts:listByProduct` is paginated and the public endpoint filters
+`isApproved = true`; index on `(productId, isApproved, createdAt)` serves sort + filter.
 
-**Optimization**: at this catalog size, keep regex but scope it (search only `name`/`nameEn`
-first, then widen); document `$text`/Atlas Search as the growth path. See QUERY_OPTIMIZATION.md.
-**Expected/measured**: no behavior change; latency documented for 100x dataset in TARGET_QUERIES.md.
+### F5 — Dashboard runs 12 concurrent full-table aggregates — done
+The dashboard previously fired a dozen aggregates per load. Now the nightly-safe rollup job
+(`analyticsRepo.rollupDailyStats(30)`, BullMQ cron `*/15 * * * *` UTC) maintains daily rows and
+the dashboard reads them, then caches the assembled payload in Redis for 60s.
 
-### F3 — Unbounded order history
-`order.controller.ts:history` returned ALL orders for a user without pagination.
+### F6 — No server-side response cache — done
+Public endpoints (products, bestsellers, offers, categories, banners, branches, settings,
+posts, dashboard) use the `cached()` Redis cache-aside middleware (60-300s TTL) with
+`invalidateCache()` on writes. Client TanStack caching remains for interactive UX.
 
-**Optimization**: limit+skip with sane defaults (page/limit query params; default 10, max 50);
-response shape updated to `{ items, total, page, pages, limit }` (client + tests updated).
-Also added `{ user: 1, createdAt: -1 }` index for the sort.
-**Expected result**: bounded response size.
-**Measured**: response bounded; index in place (see post-Phase-1 table).
+### F7 — Emails sent fire-and-forget — done
+`createOrder` / `forgotPassword` / `register` enqueue into the BullMQ `orabi-email` queue
+(concurrency 3, retries + backoff). If Redis is down the inline fallback sends synchronously;
+with no SMTP configured, emails log to the console (`[MAIL:dev]`) for development.
 
-### F4 — Unbounded reviews list
-`review.controller.ts:listByProduct` returned all reviews per product.
+### F8 — No transactions — done
+PostgreSQL gives ACID transactions and row-level correctness: order placement is a single
+transaction (`ordersRepo.placeOrder`), coupon redemptions are guarded by
+`countRedemptionsForUser`, analytics bump/rollup uses `ON CONFLICT` upserts, and
+`generateOrderNo` collisions retry on `23505`.
 
-**Optimization**: paginate (limit+skip; default 10, max 50) and filter `isApproved: true` on the
-public endpoint to match the product-detail behavior. Added `{ product: 1, isApproved: 1,
-createdAt: -1 }` index so sort+filter is served from the index.
-**Measured**: index in use (stage FETCH, no in-memory SORT — see post-Phase-1 table).
+## Endpoint latency snapshot
 
-### F5 — Dashboard runs 12 concurrent full-table aggregates
-`analytics.controller.ts:dashboard` fires 12 `Order.aggregate` scans on every dashboard load,
-including a full `$unwind` of all order items for top products. The `Analytics` daily-rollup
-model exists but is not used by the dashboard.
-
-**Optimization**: background rollup jobs (BullMQ, Phase 3) + Redis-cached dashboard payload
-(Phase 2). **Expected**: dashboard latency from ~100ms+ to <30ms at scale; DB load reduced to
-zero on cache hit.
-
-### F6 — No server-side response cache
-Only client TanStack caching exists. Public endpoints (menu, products, categories, offers,
-bestsellers, branches, zones) re-query Mongo on every hit.
-
-**Optimization**: Redis cache-aside (Phase 2) + `Cache-Control` headers on public endpoints.
-
-### F7 — Emails sent fire-and-forget
-`createOrder` and `forgotPassword` call `sendOrderConfirmation` / OTP email without a queue.
-A SMTP hiccup silently drops critical mail.
-
-**Optimization**: BullMQ `email` queue with retry + backoff (Phase 3).
-
-### F8 — No transactions
-Standalone Mongo (no replica set) cannot run multi-doc transactions. Order creation validates
-coupon + writes order + increments analytics without atomicity.
-
-**Optimization**: single-node replica set (`--replSet rs0`) + `withTransaction` (Phase 4).
-
-## Endpoint latency snapshot (Phase 0, pre-optimization)
-
-Captured via the new diagnostics middleware during a puppeteer smoke run. Fill real numbers
-here after first traffic; p-values are provided by the 60s summary log.
+Captured by the k6 load scenarios — see `docs/LOAD_TESTS.md` for commands, thresholds
+(p95 < 300 ms public reads, < 1 s checkout/admin), and per-run summary results. The
+diagnostics middleware logs per-route p-values every 60s for live observation.
 
 | Endpoint | avg ms | p50 | p90 | p95 | p99 |
 |---|---|---|---|---|---|
-| GET /api/v1/products | TBD | TBD | TBD | TBD | TBD |
-| GET /api/v1/products/:slug | TBD | TBD | TBD | TBD | TBD |
-| GET /api/v1/categories/active | TBD | TBD | TBD | TBD | TBD |
-| GET /api/v1/offers/active | TBD | TBD | TBD | TBD | TBD |
-| GET /api/v1/branches | TBD | TBD | TBD | TBD | TBD |
-| POST /api/v1/orders | TBD | TBD | TBD | TBD | TBD |
-| GET /api/v1/analytics/dashboard | TBD | TBD | TBD | TBD | TBD |
+| GET /api/v1/products | k6 | k6 | k6 | k6 | k6 |
+| GET /api/v1/products/:slug | k6 | k6 | k6 | k6 | k6 |
+| GET /api/v1/categories/tree | k6 | k6 | k6 | k6 | k6 |
+| GET /api/v1/offers/active | k6 | k6 | k6 | k6 | k6 |
+| GET /api/v1/branches | k6 | k6 | k6 | k6 | k6 |
+| POST /api/v1/orders | k6 | k6 | k6 | k6 | k6 |
+| GET /api/v1/analytics/dashboard | k6 | k6 | k6 | k6 | k6 |
 
 ## Optimization register
 
-| # | Problem | Fix | Phase | Status |
-|---|---|---|---|---|
-| F1 | collection scan on public product queries | compound indexes | 1 | done |
-| F2 | regex search no index | scoped search + documented growth path | 1 | pending |
-| F3 | unbounded order history | pagination + `{user,createdAt}` index | 1 | done |
-| F4 | unbounded reviews | pagination + `{product,isApproved,createdAt}` index | 1 | done |
-| F5 | 12 aggregates per dashboard | rollup + Redis cache | 2/3 | pending |
-| F6 | no server cache | Redis cache-aside | 2 | pending |
-| F7 | fire-and-forget email | BullMQ queue | 3 | pending |
-| F8 | no transactions | replica set + transactions | 4 | pending |
+| # | Problem | Fix | Status |
+|---|---|---|---|
+| F1 | scan on public product queries | PostgreSQL indexes on filter/sort columns | done |
+| F2 | ILIKE search unindexed | scoped search; `pg_trgm` GIN documented as growth path | pending |
+| F3 | unbounded order history | pagination + `(userId, createdAt)` index | done |
+| F4 | unbounded reviews | pagination + `(productId, isApproved, createdAt)` index | done |
+| F5 | 12 aggregates per dashboard | daily rollup (BullMQ cron) + Redis-cached payload | done |
+| F6 | no server cache | Redis cache-aside on public endpoints | done |
+| F7 | fire-and-forget email | BullMQ `orabi-email` queue with retry/backoff | done |
+| F8 | no transactions | PostgreSQL transactions + guarded redemptions | done |
