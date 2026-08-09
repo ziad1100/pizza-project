@@ -49,7 +49,10 @@ export const createOrder = asyncHandler(async (req: AuthRequest, res: Response) 
       const dbExtra = ((product.extras as Array<{ name: string; nameEn: string; price: number }>) ?? []).find(
         (p) => p.name === e.name || p.nameEn === e.name,
       );
-      return dbExtra ? { name: dbExtra.name, price: dbExtra.price } : { name: e.name, price: Number(e.price) || 0 };
+      if (!dbExtra) {
+        throw new ApiError(400, `Unknown extra "${e.name}" on product "${product.name}"`);
+      }
+      return { name: dbExtra.name, price: dbExtra.price };
     });
     const extrasTotal = extras.reduce((acc, e) => acc + (Number(e.price) || 0), 0);
     const lineTotal = (unitPrice + extrasTotal) * Math.max(1, item.qty);

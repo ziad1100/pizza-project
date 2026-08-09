@@ -6,14 +6,43 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
 
+const MISSING_ENV_HINT =
+  'Missing required environment variable "%s". This server requires explicit configuration: ' +
+  'see server/.env.example and copy it to server/.env with real values. ' +
+  'There is intentionally no insecure default.';
+
+const requireEnv = (name: string, secret = false): string => {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(MISSING_ENV_HINT.replace('%s', name));
+  }
+  if (secret && value.length < 32) {
+    throw new Error(
+      `Invalid environment variable "${name}": must be at least 32 characters. ` +
+        'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"',
+    );
+  }
+  const knownPlaceholders = ['dev_access_secret_change_me', 'dev_refresh_secret_change_me'];
+  if (secret && knownPlaceholders.includes(value)) {
+    throw new Error(
+      `Invalid environment variable "${name}": the legacy dev placeholder is not allowed. ` +
+        'Generate a real secret with: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"',
+    );
+  }
+  return value;
+};
+
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isProd = nodeEnv === 'production';
+
 const env = {
-  nodeEnv: process.env.NODE_ENV || 'development',
-  isProd: process.env.NODE_ENV === 'production',
+  nodeEnv,
+  isProd,
   port: Number(process.env.PORT) || 5000,
 
   mongoUri: process.env.MONGO_URI || '',
 
-  databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  databaseUrl: requireEnv('DATABASE_URL'),
   supabaseUrl: process.env.SUPABASE_URL || 'http://127.0.0.1:54321',
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
@@ -21,8 +50,8 @@ const env = {
 
   redisUrl: process.env.REDIS_URL || '',
 
-  jwtAccessSecret: process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_me',
-  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'dev_refresh_secret_change_me',
+  jwtAccessSecret: requireEnv('JWT_ACCESS_SECRET', true),
+  jwtRefreshSecret: requireEnv('JWT_REFRESH_SECRET', true),
   accessTokenExpires: process.env.ACCESS_TOKEN_EXPIRES || '15m',
   refreshTokenExpires: process.env.REFRESH_TOKEN_EXPIRES || '7d',
   cookieSecure: process.env.COOKIE_SECURE === 'true',

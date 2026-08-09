@@ -50,7 +50,7 @@ describe('posts', () => {
     expect(res.status).toBe(403);
   });
 
-  it('lists only published posts publicly and all posts for admin', async () => {
+it('lists only published posts publicly and all posts for admin', async () => {
     const admin = await createUser({ role: 'admin' });
     const auth = bearer(admin.id);
     await api.post(POSTS).set(auth).send({ title: 'منشور', titleEn: 'Visible', isPublished: true }).expect(201);
@@ -62,6 +62,15 @@ describe('posts', () => {
 
     const all = await api.get(`${POSTS}/all/admin`).set(auth).expect(200);
     expect(all.body.data.total).toBe(2);
+  });
+
+  it('blocks draft listing from anonymous users and customers (S7)', async () => {
+    const anonymous = await api.get(`${POSTS}/all/admin`);
+    expect(anonymous.status).toBe(401);
+
+    const customer = await createUser({ role: 'customer' });
+    const customerCall = await api.get(`${POSTS}/all/admin`).set(bearer(customer.id));
+    expect(customerCall.status).toBe(403);
   });
 
   it('re-slugs on update when the title changes, keeping a stable slug otherwise', async () => {

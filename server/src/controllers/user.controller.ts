@@ -21,6 +21,9 @@ export const updateUser = asyncHandler(async (req: AuthRequest, res: Response) =
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
   }
+  if (updates.isActive === false) {
+    updates.refreshToken = null;
+  }
   try {
     const user = await adminUsersRepo.updateUser(req.params.id, updates);
     if (!user) throw new ApiError(404, 'User not found');

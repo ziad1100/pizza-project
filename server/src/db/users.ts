@@ -1,4 +1,14 @@
 ﻿import { query } from './index';
+import { hashToken } from '../utils/token';
+
+const TOKEN_COLUMNS: readonly string[] = ['refreshToken', 'emailVerifyToken', 'resetToken'];
+const normalize = (sets: Record<string, unknown>): Record<string, unknown> => {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(sets)) {
+    out[k] = TOKEN_COLUMNS.includes(k) && typeof v === 'string' && v !== '' ? hashToken(v) : v;
+  }
+  return out;
+};
 
 export interface SafeUser {
   id: string;
@@ -47,12 +57,12 @@ export const countByEmail = async (email: string): Promise<number> => {
 };
 
 export const getByVerifyToken = async (token: string): Promise<UserWithCredentials | null> => {
-  const rows = await query(`SELECT ${WITH_CRED_COLS} FROM users u WHERE u."emailVerifyToken" = $1 LIMIT 1`, [token]);
+  const rows = await query(`SELECT ${WITH_CRED_COLS} FROM users u WHERE u."emailVerifyToken" = $1 LIMIT 1`, [hashToken(token)]);
   return ((rows[0] as unknown) as UserWithCredentials | undefined) ?? null;
 };
 
 export const getByResetToken = async (token: string): Promise<UserWithCredentials | null> => {
-  const rows = await query(`SELECT ${WITH_CRED_COLS} FROM users u WHERE u."resetToken" = $1 LIMIT 1`, [token]);
+  const rows = await query(`SELECT ${WITH_CRED_COLS} FROM users u WHERE u."resetToken" = $1 LIMIT 1`, [hashToken(token)]);
   return ((rows[0] as unknown) as UserWithCredentials | undefined) ?? null;
 };
 
@@ -77,7 +87,9 @@ export const create = async (data: {
      RETURNING ${WITH_CRED_COLS.replaceAll('u.', '')}`,
     [data.fullName, data.email, data.phone ?? '', data.passwordHash ?? '', data.role ?? 'customer',
      data.provider ?? 'local', data.providerId ?? '', data.avatar ?? '', data.isVerified ?? false,
-     data.isActive ?? true, data.emailVerifyToken ?? null, data.emailVerifyExpires ?? null],
+     data.isActive ?? true,
+     data.emailVerifyToken ? hashToken(data.emailVerifyToken) : null,
+     data.emailVerifyExpires ?? null],
   );
 const created = rows[0];
   // values in the RETURNING list are prefixed with u. — strip and re-map by re-selecting the row
@@ -86,6 +98,7 @@ const created = rows[0];
 };
 
 export const update = async (id: string, sets: Record<string, unknown>): Promise<UserWithCredentials | null> => {
+  sets = normalize(sets);
   if (Object.keys(sets).length === 0) return getById(id);
   const entries = Object.entries(sets);
   const setSql = entries.map(([k], i) => `"${k}" = $${i + 2}`).join(', ');
@@ -95,6 +108,7 @@ export const update = async (id: string, sets: Record<string, unknown>): Promise
 };
 
 export const updateByEmail = async (email: string, sets: Record<string, unknown>): Promise<boolean> => {
+  sets = normalize(sets);
   const entries = Object.entries(sets);
   if (entries.length === 0) return false;
   const setSql = entries.map(([k], i) => `"${k}" = $${i + 2}`).join(', ');

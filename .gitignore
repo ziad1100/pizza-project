@@ -32,6 +32,13 @@ server/uploads/
 # Secrets — never commit these
 .env
 server/.env
+.env.*
+!.env.example
+!server/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Backups (received copies, DB dumps, scheduled-task artifacts)
 backups/

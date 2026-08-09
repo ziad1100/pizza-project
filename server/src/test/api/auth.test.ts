@@ -1,10 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as usersRepo from '../../db/users';
+import { enqueueVerificationEmail } from '../../services/email.service';
 import { api, bearer, createUser, seedRoles, toId } from '../helpers';
 
-vi.mock('../../middlewares/rateLimiter', () => ({
-  authLimiter: (_req: unknown, _res: unknown, next: () => void) => next(),
+vi.mock('../../middlewares/rateLimiter', () => {
+  const pass = (_req: unknown, _res: unknown, next: () => void) => next();
+  return {
+    authLimiter: pass,
+    subscribeLimiter: pass,
+    contactLimiter: pass,
+    adminApiLimiter: pass,
+  };
+});
+
+vi.mock('../../services/email.service', () => ({
+  enqueueVerificationEmail: vi.fn(),
+  enqueuePasswordResetOtp: vi.fn(),
 }));
+
+const verificationMock = vi.mocked(enqueueVerificationEmail);
 
 const AUTH = '/api/v1/auth';
 
@@ -53,6 +67,40 @@ describe('register', () => {
       .post(`${AUTH}/register`)
       .send({ fullName: 'Bad', email: 'not-an-email', password: 'Pizza123!' });
     expect(res.status).toBe(422);
+  });
+
+  it('never registers an elevated role from the client (role is ignored)', async () => {
+    const res = await api
+      .post(`${AUTH}/register`)
+      .send({ fullName: 'Sneaky', email: 'sneaky@example.com', phone: '01000000001', password: 'Pizza123!', role: 'customer', adminCode: 'wrong' });
+    expect(res.status).toBe(201);
+    expect(res.body.data.user.role).toBe('customer');
+    const stored = await usersRepo.getByEmail('sneaky@example.com');
+    expect(stored?.role).toBe('customer');
+  });
+
+  it('rejects an invalid admin code with 403', async () => {
+    const res = await api
+      .post(`${AUTH}/register`)
+      .send({ fullName: 'Fake Admin', email: 'fakeadmin@example.com', phone: '01000000002', password: 'Pizza123!', role: 'admin', adminCode: 'wrong' });
+    expect(res.status).toBe(403);
+  });
+
+  it('registers an admin only with the correct ADMIN_REGISTER_CODE', async () => {
+    process.env.ADMIN_REGISTER_CODE = 'p1-secret-code-123';
+    try {
+      const noCode = await api
+        .post(`${AUTH}/register`)
+        .send({ fullName: 'No Code', email: 'nocode@example.com', phone: '01000000003', password: 'Pizza123!', role: 'admin', adminCode: 'wrong' });
+      expect(noCode.status).toBe(403);
+      const ok = await api
+        .post(`${AUTH}/register`)
+        .send({ fullName: 'Real Admin', email: 'realadmin@example.com', phone: '01000000004', password: 'Pizza123!', role: 'admin', adminCode: 'p1-secret-code-123' });
+      expect(ok.status).toBe(201);
+      expect(ok.body.data.user.role).toBe('admin');
+    } finally {
+      delete process.env.ADMIN_REGISTER_CODE;
+    }
   });
 });
 
@@ -161,6 +209,15 @@ describe('logout', () => {
     await seedRoles();
   });
 
+  const loginAndGetRefreshCookie = async () => {
+    await createUser({ email: 'logout@pizzahouse.test' });
+    const loginRes = await api
+      .post(`${AUTH}/login`)
+      .send({ email: 'logout@pizzahouse.test', password: 'Pizza123!' });
+    const cookies = loginRes.headers['set-cookie'] as unknown as string[];
+    return cookies.find((c) => c.startsWith('refreshToken='))!.split(';')[0];
+  };
+
   it('clears the auth cookies', async () => {
     const user = await createUser();
     const res = await api.post(`${AUTH}/logout`).set(bearer(toId(user.id)));
@@ -169,22 +226,39 @@ describe('logout', () => {
     const cleared = cookies.filter((c) => /refreshToken=;|accessToken=;/.test(c));
     expect(cleared.length).toBe(2);
   });
+
+  it('revokes the stored refresh token, so refresh fails after logout', async () => {
+    const cookie = await loginAndGetRefreshCookie();
+    await new Promise((r) => setTimeout(r, 1100));
+    const rotated = await api.post(`${AUTH}/refresh`).set('Cookie', cookie);
+    expect(rotated.status).toBe(200);
+    const rotatedCookie = (rotated.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('refreshToken='))!.split(';')[0];
+    const out = await api.post(`${AUTH}/logout`).set('Cookie', rotatedCookie);
+    expect(out.status).toBe(200);
+    const reuse = await api.post(`${AUTH}/refresh`).set('Cookie', rotatedCookie);
+    expect(reuse.status).toBe(401);
+    const user = await usersRepo.getByEmail('logout@pizzahouse.test');
+    expect(user?.refreshToken).toBeNull();
+  });
 });
 
 describe('email verification', () => {
   beforeEach(async () => {
     await seedRoles();
+    verificationMock.mockClear();
   });
 
   it('verifies an email with a valid token, then rejects reuse', async () => {
     await register();
-    const user = await usersRepo.getByEmail('fresh@example.com');
-    const ok = await api.get(`${AUTH}/verify-email`).query({ token: user!.emailVerifyToken });
+    expect(verificationMock).toHaveBeenCalledTimes(1);
+    const token = verificationMock.mock.calls[0]![1];
+    const ok = await api.get(`${AUTH}/verify-email`).query({ token });
     expect(ok.status).toBe(200);
-    const again = await api.get(`${AUTH}/verify-email`).query({ token: user!.emailVerifyToken });
+    const again = await api.get(`${AUTH}/verify-email`).query({ token });
     expect(again.status).toBe(400);
-    const after = await usersRepo.getById(user!.id);
+    const after = await usersRepo.getByEmail('fresh@example.com');
     expect(after?.isVerified).toBe(true);
+    expect(after?.emailVerifyToken).toBeNull();
   });
 
   it('rejects an invalid token', async () => {
@@ -276,5 +350,33 @@ describe('change password', () => {
       .set(bearer(toId(user.id)))
       .send({ currentPassword: 'WrongPass1', newPassword: 'Rotated123' });
     expect(res.status).toBe(400);
+  });
+
+  it('revokes sessions after a password change (refresh fails afterwards)', async () => {
+    await createUser({ email: 'revokechangepw@pizzahouse.test' });
+    const loginRes = await api
+      .post(`${AUTH}/login`)
+      .send({ email: 'revokechangepw@pizzahouse.test', password: 'Pizza123!' });
+    const cookie = (loginRes.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('refreshToken='))!.split(';')[0];
+    const res = await api
+      .post(`${AUTH}/change-password`)
+      .set(bearer(toId((await usersRepo.getByEmail('revokechangepw@pizzahouse.test'))!.id)))
+      .send({ currentPassword: 'Pizza123!', newPassword: 'Rotated123' });
+    expect(res.status).toBe(200);
+    const reuse = await api.post(`${AUTH}/refresh`).set('Cookie', cookie);
+    expect(reuse.status).toBe(401);
+  });
+
+  it('revokes sessions when the password is reset via OTP', async () => {
+    await createUser({ email: 'revokereset@pizzahouse.test' });
+    const loginRes = await api
+      .post(`${AUTH}/login`)
+      .send({ email: 'revokereset@pizzahouse.test', password: 'Pizza123!' });
+    const cookie = (loginRes.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('refreshToken='))!.split(';')[0];
+    const sent = await api.post(`${AUTH}/forgot-password`).send({ email: 'revokereset@pizzahouse.test' });
+    const code = sent.body.data.code as string;
+    await api.post(`${AUTH}/reset-password`).send({ token: code, password: 'AfterReset123' });
+    const reuse = await api.post(`${AUTH}/refresh`).set('Cookie', cookie);
+    expect(reuse.status).toBe(401);
   });
 });

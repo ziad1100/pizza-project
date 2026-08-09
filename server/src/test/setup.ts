@@ -14,6 +14,8 @@ process.env.NODE_ENV = 'test';
 process.env.PORT = '5050';
 process.env.DATABASE_URL = TEST_DB_URL;
 process.env.REDIS_URL = '';
+process.env.JWT_ACCESS_SECRET = 'test_access_secret_0123456789abcdef0123456789abcdef';
+process.env.JWT_REFRESH_SECRET = 'test_refresh_secret_0123456789abcdef0123456789abcdef';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -90,7 +92,9 @@ const truncateAll = async (client: pg.Pool): Promise<void> => {
 };
 
 beforeAll(async () => {
-  ensureContainer();
+  if (!process.env.TEST_DATABASE_URL) {
+    ensureContainer();
+  }
   pool = new pg.Pool({ connectionString: TEST_DB_URL });
   await waitForDb(pool);
   await applySchemaIfNeeded(pool);
@@ -102,9 +106,11 @@ afterEach(async () => {
 
 afterAll(async () => {
   await pool?.end().catch(() => undefined);
-  try {
-    docker(['stop', '-t', '1', CONTAINER]);
-  } catch {
-    /* container may already be gone */
+  if (!process.env.TEST_DATABASE_URL) {
+    try {
+      docker(['stop', '-t', '1', CONTAINER]);
+    } catch {
+      /* container may already be gone */
+    }
   }
 });

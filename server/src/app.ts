@@ -54,9 +54,11 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
+const API_WINDOW_MS = Number(process.env.API_WINDOW_MS) || 15 * 60 * 1000;
+const API_LIMIT = Number(process.env.API_LIMIT) || 300;
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 300,
+  windowMs: API_WINDOW_MS,
+  limit: API_LIMIT,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },

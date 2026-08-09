@@ -8,7 +8,7 @@ import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { clearAuthCookies, setAuthCookies, REFRESH_COOKIE_NAME } from '../utils/cookies';
-import { generateEmailCode, generateEmailToken, verifyRefreshToken } from '../utils/token';
+import { generateEmailCode, generateEmailToken, hashToken, verifyRefreshToken } from '../utils/token';
 import { enqueuePasswordResetOtp, enqueueVerificationEmail } from '../services/email.service';
 import { ROLES } from '../constants';
 
@@ -31,14 +31,18 @@ export const getUserWithRole = async (id: string) => {
 };
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
-  const { fullName, email, phone, password, role = ROLES.CUSTOMER, adminCode } = req.body;
+  const { fullName, email, phone, password, role: requestedRole, adminCode } = req.body;
   const exists = await usersRepo.getByEmail(email);
   if (exists) throw new ApiError(409, 'Email already registered');
 
-  if (role === ROLES.ADMIN) {
+  // A client-supplied role is never trusted: only the validated admin self-registration
+  // path (correct ADMIN_REGISTER_CODE) may yield an elevated role.
+  let role: string = ROLES.CUSTOMER;
+  if (requestedRole === ROLES.ADMIN) {
     const expectedCode = process.env.ADMIN_REGISTER_CODE;
     if (!expectedCode) throw new ApiError(403, 'Admin registration is disabled');
     if (adminCode !== expectedCode) throw new ApiError(403, 'Invalid admin code');
+    role = ROLES.ADMIN;
   }
 
   const hashed = await bcrypt.hash(password, 10);
@@ -61,7 +65,8 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
   await enqueueVerificationEmail(email, emailVerifyToken);
 
-  const { accessToken } = setAuthCookies(res, user.id);
+  const { accessToken, refreshToken } = setAuthCookies(res, user.id);
+  await usersRepo.update(user.id, { refreshToken });
   res.status(201).json(
     new ApiResponse(
       201,
@@ -92,11 +97,21 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   if (!ok) throw new ApiError(401, 'Invalid email or password');
   if (!user.isActive) throw new ApiError(403, 'Account is deactivated');
 
-  const { accessToken } = setAuthCookies(res, user.id);
+  const { accessToken, refreshToken } = setAuthCookies(res, user.id);
+  await usersRepo.update(user.id, { refreshToken });
   res.json(new ApiResponse(200, { user: await getUserWithRole(user.id), accessToken }, 'Logged in'));
 });
 
-export const logout = asyncHandler(async (_req: Request, res: Response) => {
+export const logout = asyncHandler(async (req: Request, res: Response) => {
+  const token = req.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
+  if (token) {
+    try {
+      const payload = verifyRefreshToken(token) as { sub: string };
+      await usersRepo.update(payload.sub, { refreshToken: null });
+    } catch {
+      /* invalid/expired token: nothing to revoke */
+    }
+  }
   clearAuthCookies(res);
   res.json(new ApiResponse(200, null, 'Logged out'));
 });
@@ -112,8 +127,8 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
   }
   const user = await usersRepo.getById(payload.sub);
   if (!user || !user.isActive) throw new ApiError(401, 'Account not found');
-  if (user.refreshToken && user.refreshToken !== token) {
-    // token reuse detected — force re-login
+  // No stored hash or a mismatching one means the session was revoked, rotated or reused
+  if (user.refreshToken !== hashToken(token)) {
     clearAuthCookies(res);
     throw new ApiError(401, 'Refresh token reused — please login again');
   }
@@ -138,7 +153,9 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
   let devPayload: { code: string; link: string } | null = null;
   if (user) {
     const token = generateEmailCode();
-    if (!smtpConfigured) {
+    // Never leak the OTP/link through the API in production (S9); dev/test may
+    // receive it inline so local flows work without an SMTP server.
+    if (!smtpConfigured && !env.isProd) {
       devPayload = { code: token, link: `${env.clientUrl}/reset-password?token=${token}` };
     }
     await usersRepo.update(user.id, {
@@ -158,7 +175,12 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
     throw new ApiError(400, 'Invalid or expired reset token');
   }
   const passwordHash = await bcrypt.hash(password, 10);
-  await usersRepo.update(user.id, { passwordHash, resetToken: null, resetTokenExpires: null });
+  await usersRepo.update(user.id, {
+    passwordHash,
+    resetToken: null,
+    resetTokenExpires: null,
+    refreshToken: null,
+  });
   res.json(new ApiResponse(200, null, 'Password reset successfully'));
 });
 
@@ -170,7 +192,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   const ok = await bcrypt.compare(currentPassword, user.passwordHash ?? '');
   if (!ok) throw new ApiError(400, 'Current password is incorrect');
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await usersRepo.update(user.id, { passwordHash });
+  await usersRepo.update(user.id, { passwordHash, refreshToken: null });
   res.json(new ApiResponse(200, null, 'Password changed'));
 });
 
@@ -205,7 +227,8 @@ export const socialAuthCallback = (provider: 'google' | 'facebook') =>
         throw apiErrorFromPg(err);
       }
     }
-    const { accessToken } = setAuthCookies(res, user.id);
+    const { accessToken, refreshToken } = setAuthCookies(res, user.id);
+    await usersRepo.update(user.id, { refreshToken });
     const redirect = `${env.clientUrl}/auth/callback#accessToken=${accessToken}`;
     res.redirect(redirect);
   });

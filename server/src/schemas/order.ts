@@ -8,7 +8,11 @@ const item = z.object({
   size: objectId('Invalid size id').nullable().optional(),
   sizeName: z.string().trim().max(100).optional(),
   extras: z.array(extra).max(30).optional(),
-  qty: z.coerce.number().int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
+  qty: z.coerce
+    .number()
+    .int('Quantity must be a whole number')
+    .min(1, 'Quantity must be at least 1')
+    .max(99, 'Quantity must be at most 99'),
 });
 
 export const createOrderSchema = z.object({

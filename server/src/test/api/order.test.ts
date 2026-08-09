@@ -123,6 +123,65 @@ describe('create order', () => {
     expect(res.body.data.subtotal).toBe(260);
   });
 
+  it('rejects an unknown extra instead of trusting its client price', async () => {
+    const { product } = await setupCatalog();
+    const user = await createUser();
+    const res = await api
+      .post(ORDERS)
+      .set(bearer(user.id))
+      .send(
+        orderBody(toId(product._id), {
+          items: [{ product: toId(product._id), qty: 1, extras: [{ name: 'Not a real extra', price: 1 }] }],
+        }),
+      );
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('Unknown extra');
+  });
+
+  it('prices a known extra from the server, ignoring the client-supplied price', async () => {
+    const { product } = await setupCatalog();
+    const admin = await productsRepo.getByIdAdmin(toId(product._id));
+    const extra = (admin?.extras as Array<{ name: string; price: number }>)[0];
+    const user = await createUser();
+    const res = await api
+      .post(ORDERS)
+      .set(bearer(user.id))
+      .send(
+        orderBody(toId(product._id), {
+          items: [{ product: toId(product._id), qty: 1, extras: [{ name: extra.name, price: 1 }] }],
+        }),
+      );
+    expect(res.status).toBe(201);
+    expect(res.body.data.subtotal).toBe(130);
+    expect(res.body.data.items[0].extras[0].price).toBe(10);
+  });
+
+  it('rejects a negative extra price with 422', async () => {
+    const { product } = await setupCatalog();
+    const admin = await productsRepo.getByIdAdmin(toId(product._id));
+    const extra = (admin?.extras as Array<{ name: string; price: number }>)[0];
+    const user = await createUser();
+    const res = await api
+      .post(ORDERS)
+      .set(bearer(user.id))
+      .send(
+        orderBody(toId(product._id), {
+          items: [{ product: toId(product._id), qty: 1, extras: [{ name: extra.name, price: -50 }] }],
+        }),
+      );
+    expect(res.status).toBe(422);
+  });
+
+  it('rejects a quantity over 99 with 422', async () => {
+    const { product } = await setupCatalog();
+    const user = await createUser();
+    const res = await api
+      .post(ORDERS)
+      .set(bearer(user.id))
+      .send(orderBody(toId(product._id), { items: [{ product: toId(product._id), qty: 100 }] }));
+    expect(res.status).toBe(422);
+  });
+
   it('applies a percent coupon discount', async () => {
     const { product } = await setupCatalog();
     await createCoupon();
