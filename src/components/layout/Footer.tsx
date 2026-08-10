@@ -1,6 +1,6 @@
 ﻿import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Clock, Phone } from 'lucide-react';
+import { Clock, MessageCircle, Phone } from 'lucide-react';
 import { Logo } from '@/components/logo/Logo';
 
 const socials = [
@@ -67,21 +67,37 @@ export function Footer() {
             <li className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-brand-500" />
               <span dir="ltr">
-                <a href="tel:+201070003535" className="transition-colors hover:text-brand-500">
-                  +20 107 000 3535
+                <a href="tel:+201278767679" className="transition-colors hover:text-brand-500">
+                  +20 127 876 7679
                 </a>
               </span>
             </li>
             <li className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-brand-500" />
               <span dir="ltr">
+                <a href="tel:+201111475556" className="transition-colors hover:text-brand-500">
+                  +20 111 475 556
+                </a>
+              </span>
+            </li>
+            <li className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-brand-500" />
+              <span dir="ltr">
+                <a href="tel:+201037472446" className="transition-colors hover:text-brand-500">
+                  +20 103 747 2446
+                </a>
+              </span>
+            </li>
+            <li className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-brand-500" />
+              <span dir="ltr">
                 <a
-                  href="https://wa.me/201070003535"
+                  href="https://wa.me/201278767679"
                   target="_blank"
                   rel="noreferrer"
                   className="transition-colors hover:text-brand-500"
                 >
-                  WhatsApp
+                  01278767679
                 </a>
               </span>
             </li>
