@@ -14,9 +14,9 @@ router.get('/:id', cached({ resource: 'categories', ttl: 300, suffix: (req) => `
 
 router.use(requireAuth);
 
-router.post('/', requirePermission('categories', 'create'), zodBody(categoryCreateSchema), logActivity('create', 'categories'), category.create, invalidateCache('categories', 'products'));
-router.patch('/:id', requirePermission('categories', 'update'), zodBody(categoryUpdateSchema), logActivity('update', 'categories'), category.update, invalidateCache('categories', 'products'));
-router.patch('/:id/toggle', requirePermission('categories', 'hide'), category.toggle, invalidateCache('categories', 'products'));
-router.delete('/:id', requirePermission('categories', 'delete'), logActivity('delete', 'categories'), category.remove, invalidateCache('categories', 'products'));
+router.post('/', requirePermission('categories', 'create'), zodBody(categoryCreateSchema), logActivity('create', 'categories'), invalidateCache('categories', 'products'), category.create);
+router.patch('/:id', requirePermission('categories', 'update'), zodBody(categoryUpdateSchema), logActivity('update', 'categories'), invalidateCache('categories', 'products'), category.update);
+router.patch('/:id/toggle', requirePermission('categories', 'hide'), invalidateCache('categories', 'products'), category.toggle);
+router.delete('/:id', requirePermission('categories', 'delete'), logActivity('delete', 'categories'), invalidateCache('categories', 'products'), category.remove);
 
 export default router;

@@ -20,11 +20,11 @@ router.get(
 );
 
 router.get('/admin', requireAuth, requirePermission('reviews', 'read'), review.adminList);
-router.delete('/admin/:id', requireAuth, requirePermission('reviews', 'delete'), review.adminRemove, invalidateCache('products'));
+router.delete('/admin/:id', requireAuth, requirePermission('reviews', 'delete'), invalidateCache('products'), review.adminRemove);
 
-router.patch('/:id/moderate', requireAuth, requirePermission('reviews', 'update'), zodBody(reviewModerateSchema), logActivity('moderate', 'reviews'), review.moderate, invalidateCache('products'));
+router.patch('/:id/moderate', requireAuth, requirePermission('reviews', 'update'), zodBody(reviewModerateSchema), logActivity('moderate', 'reviews'), invalidateCache('products'), review.moderate);
 
-router.post('/', requireAuth, zodBody(reviewCreateSchema), review.create, invalidateCache('products'));
-router.delete('/:id', requireAuth, review.remove, invalidateCache('products'));
+router.post('/', requireAuth, zodBody(reviewCreateSchema), invalidateCache('products'), review.create);
+router.delete('/:id', requireAuth, invalidateCache('products'), review.remove);
 
 export default router;

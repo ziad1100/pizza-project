@@ -14,8 +14,8 @@ router.use(requireAuth);
 router.use(requirePermission('branches', 'read'));
 
 router.get('/all', branch.listAll);
-router.post('/', requirePermission('branches', 'create'), zodBody(branchCreateSchema), logActivity('create', 'branches'), branch.create, invalidateCache('branches'));
-router.patch('/:id', requirePermission('branches', 'update'), zodBody(branchUpdateSchema), logActivity('update', 'branches'), branch.update, invalidateCache('branches'));
-router.delete('/:id', requirePermission('branches', 'delete'), logActivity('delete', 'branches'), branch.remove, invalidateCache('branches'));
+router.post('/', requirePermission('branches', 'create'), zodBody(branchCreateSchema), logActivity('create', 'branches'), invalidateCache('branches'), branch.create);
+router.patch('/:id', requirePermission('branches', 'update'), zodBody(branchUpdateSchema), logActivity('update', 'branches'), invalidateCache('branches'), branch.update);
+router.delete('/:id', requirePermission('branches', 'delete'), logActivity('delete', 'branches'), invalidateCache('branches'), branch.remove);
 
 export default router;

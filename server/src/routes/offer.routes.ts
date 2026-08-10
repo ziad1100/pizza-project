@@ -15,8 +15,8 @@ router.use(requireAuth);
 router.use(requirePermission('offers', 'read'));
 
 router.get('/', offer.list);
-router.post('/', requirePermission('offers', 'create'), zodBody(offerCreateSchema), logActivity('create', 'offers'), offer.create, invalidateCache('offers', 'products'));
-router.patch('/:id', requirePermission('offers', 'update'), zodBody(offerUpdateSchema), logActivity('update', 'offers'), offer.update, invalidateCache('offers', 'products'));
-router.delete('/:id', requirePermission('offers', 'delete'), logActivity('delete', 'offers'), offer.remove, invalidateCache('offers', 'products'));
+router.post('/', requirePermission('offers', 'create'), zodBody(offerCreateSchema), logActivity('create', 'offers'), invalidateCache('offers', 'products', 'dashboard'), offer.create);
+router.patch('/:id', requirePermission('offers', 'update'), zodBody(offerUpdateSchema), logActivity('update', 'offers'), invalidateCache('offers', 'products', 'dashboard'), offer.update);
+router.delete('/:id', requirePermission('offers', 'delete'), logActivity('delete', 'offers'), invalidateCache('offers', 'products', 'dashboard'), offer.remove);
 
 export default router;

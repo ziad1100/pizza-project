@@ -23,30 +23,30 @@ router.post(
   requirePermission('products', 'create'),
   zodBody(productCreateSchema),
   logActivity('create', 'products'),
+  invalidateCache('products', 'offers', 'categories', 'dashboard'),
   product.createProduct,
-  invalidateCache('products', 'offers', 'categories'),
 );
 router.patch(
   '/:id',
   requirePermission('products', 'update'),
   zodBody(productUpdateSchema),
   logActivity('update', 'products'),
+  invalidateCache('products', 'offers', 'categories', 'dashboard'),
   product.updateProduct,
-  invalidateCache('products', 'offers', 'categories'),
 );
 router.patch(
   '/:id/toggle',
   requirePermission('products', 'hide'),
   logActivity('toggle', 'products'),
+  invalidateCache('products', 'offers', 'categories', 'dashboard'),
   product.toggleProduct,
-  invalidateCache('products', 'offers', 'categories'),
 );
 router.delete(
   '/:id',
   requirePermission('products', 'delete'),
   logActivity('delete', 'products'),
+  invalidateCache('products', 'offers', 'categories', 'dashboard'),
   product.deleteProduct,
-  invalidateCache('products', 'offers', 'categories'),
 );
 
 export default router;

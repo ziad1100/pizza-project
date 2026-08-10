@@ -33,6 +33,7 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
 
   const previewImages = offer.products.slice(0, 4).map((p) => p.images[0]).filter(Boolean);
   const remaining = offer.products.length - previewImages.length;
+  const fallbackBanner = previewImages.length === 0 ? offer.banner : '';
 
   return (
     <div
@@ -66,7 +67,7 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
         <p className="relative mt-2 line-clamp-2 text-sm leading-relaxed text-white/80">{description}</p>
       ) : null}
 
-      {previewImages.length > 0 ? (
+      {previewImages.length > 0 || fallbackBanner ? (
         <div className="relative mt-6 flex items-center">
           <div className="flex -space-x-3 rtl:space-x-reverse">
             {previewImages.map((img, i) => (
@@ -78,6 +79,14 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
                 className="h-12 w-12 rounded-xl border-2 border-white/20 object-cover"
               />
             ))}
+            {fallbackBanner ? (
+              <img
+                src={fallbackBanner}
+                alt=""
+                loading="lazy"
+                className="h-12 w-12 rounded-xl border-2 border-white/20 object-cover"
+              />
+            ) : null}
             {remaining > 0 ? (
               <span className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-white/20 bg-night-800/70 text-sm font-bold text-white">
                 +{remaining}
@@ -89,7 +98,17 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
             {offer.products.length} {t('offers.items')}
           </span>
         </div>
-      ) : null}
+      ) : (
+        <div className="relative mt-6 flex items-center gap-3">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-white/20 bg-white/10 text-lg font-extrabold text-white">
+            {title.charAt(0)}
+          </span>
+          <span className="flex items-center gap-1 text-xs font-semibold text-white/70">
+            <Tag className="h-3.5 w-3.5" />
+            {offer.products.length} {t('offers.items')}
+          </span>
+        </div>
+      )}
 
       <div className="relative mt-auto pt-7">
         <Link to={`/offers/${offer._id}`}>

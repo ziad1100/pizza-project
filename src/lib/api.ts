@@ -47,6 +47,12 @@ api.interceptors.response.use(
         return api.request(original);
       }
     }
+    if (error.response?.status === 401 && url.includes('/auth/refresh')) {
+      clearStoredToken();
+      if (window.location.pathname.startsWith('/admin')) {
+        window.location.assign('/login?reason=session');
+      }
+    }
     return Promise.reject(error);
   },
 );

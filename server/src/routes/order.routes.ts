@@ -10,11 +10,11 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.post('/', zodBody(createOrderSchema), order.createOrder, invalidateCache('dashboard'));
-router.post('/:id/cancel', order.cancelOrder, invalidateCache('dashboard'));
+router.post('/', zodBody(createOrderSchema), invalidateCache('dashboard'), order.createOrder);
+router.post('/:id/cancel', invalidateCache('dashboard'), order.cancelOrder);
 router.get('/history', order.history);
 router.get('/stats', requirePermission('orders', 'read'), order.stats);
 router.get('/admin', requirePermission('orders', 'read'), order.adminList);
-router.patch('/:id/status', requirePermission('orders', 'update'), zodBody(updateStatusSchema), logActivity('status', 'orders'), order.updateStatus, invalidateCache('dashboard'));
+router.patch('/:id/status', requirePermission('orders', 'update'), zodBody(updateStatusSchema), logActivity('status', 'orders'), invalidateCache('dashboard'), order.updateStatus);
 
 export default router;

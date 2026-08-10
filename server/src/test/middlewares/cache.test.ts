@@ -17,6 +17,12 @@ vi.mock('../../services/cache', () => {
       del: vi.fn(async (...keys: string[]) => {
         for (const k of keys) store.delete(k);
       }),
+      delPattern: vi.fn(async (pattern: string) => {
+        const prefix = pattern.endsWith('*') ? pattern.slice(0, -1) : pattern;
+        for (const k of [...store.keys()]) {
+          if (k.startsWith(prefix)) store.delete(k);
+        }
+      }),
     },
     resourceKey: (resource: string, suffix = '') => `api:${resource}${suffix ? `:${suffix}` : ''}`,
     resourceKeys: (resource: string) => [`api:${resource}`, `api:${resource}:*`],
@@ -29,7 +35,7 @@ import { cached, invalidateCache } from '../../middlewares/cache';
 const buildApp = () => {
   const app = express();
   app.get('/', cached({ resource: 'products' }), (_req, res) => res.json({ id: 'p1', name: 'Pizza' }));
-  app.post('/writers', (_req, res) => res.status(200).json({ ok: true }), invalidateCache('products', 'categories'));
+  app.post('/writers', invalidateCache('products', 'categories'), (_req, res) => res.status(200).json({ ok: true }));
   return app;
 };
 
@@ -55,5 +61,16 @@ describe('cache middleware', () => {
     const res = await request(app).get('/');
     expect(res.status).toBe(200);
     expect(res.headers['x-cache']).toBeUndefined();
+  });
+
+  it('invalidates cached resources after a controller ends the response', async () => {
+    const { cache } = await import('../../services/cache');
+    const app = buildApp();
+    await request(app).post('/writers').expect(200);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(cache.del).toHaveBeenCalledWith('api:products');
+    expect(cache.del).toHaveBeenCalledWith('api:categories');
+    expect(cache.delPattern).toHaveBeenCalledWith('api:products:*');
+    expect(cache.delPattern).toHaveBeenCalledWith('api:categories:*');
   });
 });

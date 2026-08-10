@@ -369,10 +369,34 @@ const isSeeded = async (): Promise<boolean> => {
   return Number(counts?.n ?? 0) > 0;
 };
 
+// Idempotent repair: backfill an empty offer banner from the first image of the
+// offer's first linked product. Runs on every seed invocation (even when the DB
+// is already seeded) so admin-created offers without banners heal themselves
+// without a destructive SEED_RESET wipe.
+const repairOfferBanners = async (): Promise<void> => {
+  const repaired = await query<{ id: string }>(
+    `UPDATE offers o
+        SET banner = sub.url
+       FROM (
+         SELECT op."offerId", p.images[1] AS url
+           FROM offer_products op
+           JOIN products p ON p.id = op."productId"
+          WHERE p.images IS NOT NULL
+            AND array_length(p.images, 1) > 0
+            AND p.images[1] <> ''
+       ) sub
+      WHERE sub."offerId" = o.id
+        AND (o.banner IS NULL OR o.banner = '')
+      RETURNING o.id`,
+  );
+  if (repaired.length > 0) console.log(`[seed] offer banners backfilled (${repaired.length})`);
+};
+
 const run = async (): Promise<void> => {
   console.log('[seed] connecting...');
   await connectDB();
   await ensureSchema();
+  await repairOfferBanners();
   if ((await isSeeded()) && process.env.SEED_RESET !== '1') {
     console.log('[seed] data already exists — skipping (set SEED_RESET=1 to wipe and reseed)');
     await disconnectDB();
@@ -384,6 +408,7 @@ const run = async (): Promise<void> => {
   const catMap = await seedCategories();
   await seedProducts(catMap);
   await seedCommerce();
+  await repairOfferBanners();
   await seedSettings();
   await seedReviews(userIds);
   await seedCart(userIds);

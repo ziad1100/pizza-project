@@ -14,6 +14,6 @@ router.use(requireAuth);
 router.use(requirePermission('settings', 'read'));
 
 router.get('/', setting.getAdmin);
-router.patch('/', requirePermission('settings', 'update'), zodBody(settingsUpdateSchema), logActivity('update', 'settings'), setting.update, invalidateCache('settings'));
+router.patch('/', requirePermission('settings', 'update'), zodBody(settingsUpdateSchema), logActivity('update', 'settings'), invalidateCache('settings'), setting.update);
 
 export default router;

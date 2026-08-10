@@ -21,7 +21,7 @@ export const productCreateSchema = z.object({
   description: z.string().trim().max(5000).optional(),
   descriptionEn: z.string().trim().max(5000).optional(),
   category: objectId('Category is required'),
-  images: z.array(z.string().trim().max(500)).max(20).optional(),
+  images: z.array(z.string().trim().max(500)).min(1, 'At least one product image is required').max(20).optional(),
   sizes: z.array(size).max(10).optional(),
   extras: z.array(extra).max(30).optional(),
   ingredients: z.array(z.string().trim().max(100)).max(50).optional(),
