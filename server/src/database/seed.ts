@@ -17,7 +17,7 @@ import * as postsRepo from '../db/posts';
 import * as reviewsRepo from '../db/reviews';
 import * as cartsRepo from '../db/carts';
 import { upsertSetting } from '../db/settings';
-import { query } from '../db';
+import { query, row } from '../db';
 import { DEFAULT_SETTINGS, ORDER_STATUS } from '../constants';
 import { seedSections, seedExtras, bestSellerNames, offerNames, type SeedItem, type SeedSub } from './seedData';
 
@@ -356,9 +356,28 @@ const seedCart = async (userIds: Record<string, string>): Promise<void> => {
   console.log('[seed] cart seeded for customer demo account');
 };
 
+const ensureSchema = async (): Promise<void> => {
+  const table = await row<{ t: string | null }>(`SELECT to_regclass('public.products')::text AS t`);
+  if (table?.t) return;
+  const sql = fs.readFileSync(new URL('./migrations/001_init.sql', import.meta.url), 'utf8');
+  await query(sql);
+  console.log('[seed] schema applied (migrations/001_init.sql)');
+};
+
+const isSeeded = async (): Promise<boolean> => {
+  const counts = await row<{ n: string }>(`SELECT count(*)::int::text AS n FROM products`);
+  return Number(counts?.n ?? 0) > 0;
+};
+
 const run = async (): Promise<void> => {
   console.log('[seed] connecting...');
   await connectDB();
+  await ensureSchema();
+  if ((await isSeeded()) && process.env.SEED_RESET !== '1') {
+    console.log('[seed] data already exists — skipping (set SEED_RESET=1 to wipe and reseed)');
+    await disconnectDB();
+    return;
+  }
   await ensureRolePermissions();
   await clearTables();
   const userIds = await seedUsers();

@@ -3,10 +3,26 @@
 -- Migrated from MongoDB (Mongoose) — column names are camelCase (quoted) so the
 -- API contract (camelCase JSON) maps 1:1 with zero renaming drift.
 -- RLS: ENABLE ROW LEVEL SECURITY everywhere; policies mirror public endpoints.
+-- The Express app connects as the database owner/superuser, which bypasses RLS;
+-- the anon/authenticated/service_role roles exist so the RLS policies and GRANTs
+-- below are valid on a stock Postgres container (no Supabase required).
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS citext;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    CREATE ROLE anon NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role NOLOGIN;
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- Enums

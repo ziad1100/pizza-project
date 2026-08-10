@@ -45,9 +45,9 @@ C:\Self Work\PizzaProject
 │  │  ├─ test/           # Vitest + Supertest suite (setup, helpers, API tests)
 │  │  ├─ utils/          # ApiError, ApiResponse, asyncHandler, token, cookies, slugify (+ unit tests)
 │  │  ├─ validators/     # (legacy — empty; zod schemas supersede it)
-│  │  └─ repositories/    # (legacy — empty; `db/` supersedes it)
+│  │  ├─ repositories/    # (legacy — empty; `db/` supersedes it)
+│  │  └─ database/         # connection, roleSync, seed, seedData, migrations/ (SQL schema)
 │  └─ dist/               # server build (esbuild bundle)
-├─ supabase/               # Supabase local stack config + SQL migration(s)
 ├─ scripts/                # backup / restore / smoke_ui
 ├─ docs/                   # security & ops docs (SECURITY_AUDIT, AUTHENTICATION, RLS_POLICIES, …)
 ├─ public/                 # favicon, images (menu photos), icons sprite
@@ -104,8 +104,8 @@ C:\Self Work\PizzaProject
 - `pg` connection Pool (`server/src/db/index.ts`), config from `DATABASE_URL` (`PG_MAX_POOL_SIZE` knob)
 - One repository per table under `server/src/db/` (users, products, categories, cart_items, orders, … 20 modules)
 - Bootstrap connectivity probe in `server/src/database/connection.ts`; `roleSync.ts` upserts roles/permissions at boot
-- Schema managed by SQL migrations in `supabase/migrations/` (local Supabase `supabase start`, or any Postgres)
-- **Supabase**: optional `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` for RLS-managed auth/id — see `docs/RLS_POLICIES.md`
+- Schema managed by SQL migrations in `server/src/database/migrations/` (auto-applied by Docker Postgres on a fresh volume, and by the test suite / seed)
+- The Express app connects as the DB superuser/owner, which bypasses the (kept) RLS policies — server-side authz is the primary boundary; see `docs/RLS_POLICIES.md`
 
 ### Redis + BullMQ (`server/src/services/cache.ts`, `jobs/`, `workers/`)
 - Redis via ioredis (`REDIS_URL`) — API cache layer
@@ -144,14 +144,12 @@ C:\Self Work\PizzaProject
 
 ## 4. Database & seeding
 
-- **PostgreSQL is the source of truth**: dev via `supabase start` (local) or any Postgres; prod via Supabase cloud `DATABASE_URL` (see production checklist in `server/.env.example`)
-- **Schema**: SQL migrations in `supabase/migrations/` (local Supabase auto-applies; the suite applies `20250101000000_init.sql` on the test DB)
-- **Mongo legacy**: `MONGO_URI` remains as a placeholder until the one-time mongo→postgres data migration script (`server/src/scripts/migrate-mongo-to-pg.ts`, per `server/.env.example`) is written and run; after that, Mongo can be removed
-- **Seed script** (`npm run seed` — destructive: TRUNCATE + RESTART IDENTITY over all tables), creates:
+- **PostgreSQL is the source of truth**: Docker Postgres (`docker compose up -d postgres`; `postgres:16-alpine`, DB `pizza`, port 5432) for dev; any managed PG via `DATABASE_URL` in prod (see production checklist in `server/.env.example`)
+- **Schema**: SQL migrations in `server/src/database/migrations/` (`001_init.sql`) — auto-applied by the Postgres container on a fresh volume (`/docker-entrypoint-initdb.d`); the test suite applies it on the test DB; `npm run seed` applies it if missing. The app connects as the DB superuser (RLS bypassed); `anon`/`authenticated`/`service_role` roles are created by the migration so the RLS policies and grants remain valid SQL
+- **Seed script** (`npm run seed` — idempotent: skips when data already exists, `SEED_RESET=1` forces TRUNCATE + RESTART IDENTITY and reseeds), creates:
   - 68 ORABI products across 7 menu sections / 12 sub-sections (source of truth: `orabi_menu.json` at repo root) with sizes/extras, dish photos in `public/images/products` (reused legacy photos + royalty-free downloads + SVG placeholders, see `scripts/menu-photo-map.json`), 10 `isBestSeller` + 10 `isOffer`
   - 4 users (password `Pizza123!`): `admin@pizzahouse.dev`, `manager@pizzahouse.dev`, `employee@pizzahouse.dev`, `customer@pizzahouse.dev`
   - Roles/permissions via `roleSync` (non-destructive upsert), categories, posts, reviews, branches, delivery zones, settings, coupons/offers/banners
-- **Seeding is DESTRUCTIVE** — it TRUNCATEs all tables before inserting. Run it only against a disposable/backed-up DB
 - **roleSync** (`database/roleSync.ts`): boot-time ensure roles + permission presets
 
 ---
@@ -165,7 +163,7 @@ C:\Self Work\PizzaProject
 | `npm run dev:all` | Both concurrently |
 | `npm run build` | Client: `tsc -b` + `vite build` → `dist/` |
 | `npm run build:server` | Server: `tsc --noEmit` + esbuild bundle → `server/dist/server.js` |
-| `npm run seed` | Destructive reseed of Postgres |
+| `npm run seed` | Idempotent seed of Postgres (skips when populated; `SEED_RESET=1` wipes + reseeds) |
 | `npm run test` | Vitest suite (unit + API integration) on an ephemeral PG |
 | `npm run test:watch` | Vitest watch mode |
 | `npm run lint` | ESLint |
@@ -186,7 +184,7 @@ C:\Self Work\PizzaProject
 
 ## 6. Environment variables
 
-Documented inline in `server/.env.example` (including a production checklist). Key groups: `PORT`, `NODE_ENV`, `DATABASE_URL` (required), `SUPABASE_URL` `SUPABASE_SERVICE_ROLE_KEY` `SUPABASE_ANON_KEY`, `REDIS_URL`, `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` (**required ≥ 32 chars**), `ACCESS_TOKEN_EXPIRES` (15m) / `REFRESH_TOKEN_EXPIRES` (7d), `COOKIE_SECURE`, `CLIENT_URL`, `ADMIN_REGISTER_CODE`, rate-limit knobs, `CLOUDINARY_*`, `SMTP_*` + `MAIL_FROM`, `GOOGLE_*`/`FACEBOOK_*`. No insecure defaults — missing required vars crash boot with a clear message (see `server/src/config/env.ts`).
+Documented inline in `server/.env.example` (including a production checklist). Key groups: `PORT`, `NODE_ENV`, `DATABASE_URL` (required), `REDIS_URL`, `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` (**required ≥ 32 chars**), `ACCESS_TOKEN_EXPIRES` (15m) / `REFRESH_TOKEN_EXPIRES` (7d), `COOKIE_SECURE`, `CLIENT_URL`, `ADMIN_REGISTER_CODE`, rate-limit knobs, `CLOUDINARY_*`, `SMTP_*` + `MAIL_FROM`, `GOOGLE_*`/`FACEBOOK_*`. No insecure defaults — missing required vars crash boot with a clear message (see `server/src/config/env.ts`).
 
 ---
 
@@ -194,8 +192,7 @@ Documented inline in `server/.env.example` (including a production checklist). K
 
 - **Git**: private repo, remote `origin` → `https://github.com/ziad1100/pizza-project.git`, `main`. Secrets + data dirs excluded (`.env*`, `server/.data/`, `server/uploads/`, `backups/`); secrets mirrored to `backups/secrets/` (git-ignored)
 - **DB backups**: `npm run backup:db` produces, into `OneDrive\PizzaBackups\db\`:
-  - `postgres-pizza-<stamp>.sql.gz` — Postgres dump (pg_dump on PATH → `docker exec supabase-db` → `supabase db dump`), and
-  - `pizza-<stamp>.gz` — legacy Mongo dump (container `pizzaproject-mongo-1`; kept until migration completes)
+  - `postgres-pizza-<stamp>.sql.gz` — Postgres dump (pg_dump on PATH → `docker exec pizzaproject-postgres-1`)
 - **One command**: `npm run backup` = DB dump(s) + data copy + git commit + push (`scripts/backup.mjs`)
 - **Automation**: Windows scheduled task `ORABIBackup` runs `scripts/backup.ps1` daily 03:00 (log → `OneDrive\PizzaBackups\backup.log`)
 - Full runbook: `BACKUP.md`
@@ -205,7 +202,7 @@ Documented inline in `server/.env.example` (including a production checklist). K
 ## 8. Docker deployment
 
 - **Dockerfile**: multi-stage (`node:22-alpine` build → slim runtime running `server/dist/server.js` as the `node` user)
-- **docker-compose.yml**: `mongo:7` (legacy) + `redis:7-alpine` + `app` (builds image, `5000:5000`, env pass-through from host `.env`, uploads volume). Postgres/Supabase compose is optional; local Supabase is the default PG source
+- **docker-compose.yml**: `postgres:16-alpine` (DB `pizza`, port 5432, migrations auto-applied on fresh volume, persistent `postgres-data` volume) + `redis:7-alpine` (cache/queues, `redis-data` volume) + `app` (builds image, `5000:5000`, env pass-through from host `.env`, uploads volume)
 - Run: `docker compose up --build`; SPA + API at `http://localhost:5000`
 - Validate: `SMOKE_BASE=http://localhost:5000 npm run smoke:ui`
 
@@ -214,7 +211,7 @@ Documented inline in `server/.env.example` (including a production checklist). K
 ## 9. Status & known limitations
 
 - **Gates**: `tsc --noEmit` clean (client + server), Vitest **175/175 across 21 files** (`server/src/test/**`), puppeteer smoke 18/18 in dev + production mode. ESLint is clean for scripts/new code; a few pre-existing warnings remain in `server/src/db/*` (`__total` unused) and `LoginPage.tsx` (setState in effect) from the Postgres migration
-- **PostgreSQL migration**: the stack moved from Mongo/Mongoose to PostgreSQL (`pg` + Supabase). Test suite runs against a disposable `postgres:16-alpine` container (port 54329, schemas from `supabase/migrations/`) with a Docker-free CI path via `TEST_DATABASE_URL`. A mongo→postgres data migration script remains as the last Mongo-dependent piece
+- **PostgreSQL migration**: the stack moved from Mongo/Mongoose to PostgreSQL (`pg`), run on Docker-only Postgres. Test suite runs against a disposable `postgres:16-alpine` container (port 54329, schemas from `server/src/database/migrations/`) with a Docker-free CI path via `TEST_DATABASE_URL`. Legacy Mongo volume (`pizzaproject_mongo-data`, `server/.data`) is retired and left untouched on disk
 - **Security hardening** (see `docs/SECURITY_AUDIT.md`): findings S1–S9/S11 fixed — server-side auth role lock + session revocation + hashed tokens at rest, pricing from DB values, unknown extras → 400, upload magic-byte validation, rate-limit knobs, activity-log redaction; S7 verified via posts guard tests; S10/S12 documented. Follow-ups (MFA, direct RLS enforcement at the app layer, sessions/devices UI) are roadmap
 - **Redis/BullMQ**: cache layer + job queue in place; `REDIS_URL` optional (degrades gracefully)
 - **Docs**: security/ops docs under `docs/` (SECURITY_AUDIT, SECURITY_ARCHITECTURE_AUDIT, SECURITY, AUTHENTICATION, ADMIN_AUTHORIZATION, RLS_POLICIES, API_SECURITY, SECRET_MANAGEMENT, THREAT_MODEL, INCIDENT_RESPONSE, SECRET_ROTATION, OPERATIONS, LOAD_TESTS, PERFORMANCE_AUDIT, google-oauth-setup)
@@ -225,7 +222,6 @@ Documented inline in `server/.env.example` (including a production checklist). K
 
 ## 10. Known issues / next steps
 
-- `scripts/backup-db.mjs` still writes the Postgres archive via a toolchain search; when none of pg_dump / supabase-db container / supabase CLI is available it prints a clear skip (DB dump failing is loud, not silent)
-- `restore:db` currently covers Mongo archives only; Postgres restores go through `psql -f` into the target DB (see BACKUP.md)
-- Docker Desktop is NOT available on this dev machine right now — any container-dependent verification (compose up, smoke against container) needs it started
-- Mongo-legacy pieces (`.env.example` `MONGO_URI`, `docker-compose.yml` mongo service, `backup-db.mjs` mongo section) are retained until the mongo→postgres migration is run once against the real data
+- `scripts/backup-db.mjs` resolves the Postgres dump via `pg_dump` on PATH or the Docker container; when neither is available it prints a clear skip (DB dump failing is loud, not silent)
+- `restore:db` restores Postgres archives (`postgres-pizza-*.sql.gz`) into the Docker Postgres container via `psql`
+- Docker Desktop must be running for any container-dependent verification (compose up, smoke against container)

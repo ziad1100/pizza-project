@@ -1,12 +1,12 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdirSync, existsSync, openSync, closeSync, statSync, cpSync, createWriteStream, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { mkdirSync, statSync, createWriteStream } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { gzipSync, createGzip } from 'node:zlib';
+import { createGzip } from 'node:zlib';
 
-const CONTAINER = process.env.BACKUP_CONTAINER || 'pizzaproject-mongo-1';
-const DB_NAME = process.env.BACKUP_DB || 'pizza';
-const REPO_ROOT = process.cwd();
+const PG_CONTAINER = process.env.BACKUP_PG_CONTAINER || 'pizzaproject-postgres-1';
+const PG_DB = process.env.BACKUP_DB || 'pizza';
+const PG_USER = process.env.BACKUP_PG_USER || 'postgres';
 const BACKUP_DIR =
   process.env.BACKUP_DIR || path.join(homedir(), 'OneDrive', 'PizzaBackups');
 
@@ -20,56 +20,15 @@ const stamp = () => {
 };
 
 const dbDir = path.join(BACKUP_DIR, 'db');
-const dataDir = path.join(BACKUP_DIR, 'data');
 mkdirSync(dbDir, { recursive: true });
-mkdirSync(dataDir, { recursive: true });
 
 // -----------------------------------------------------------------------------
-// 1. Legacy MongoDB container (kept until the mongo→postgres migration is done)
-// -----------------------------------------------------------------------------
-const archive = path.join(dbDir, `${DB_NAME}-${stamp()}.gz`);
-console.log(`Dumping "${DB_NAME}" from container ${CONTAINER}`);
-console.log(`  -> ${archive}`);
-const fd = openSync(archive, 'w');
-let mongoOk = false;
-try {
-  try {
-    execFileSync(
-      'docker',
-      ['exec', CONTAINER, 'mongodump', `--db=${DB_NAME}`, '--archive', '--gzip'],
-      { stdio: ['ignore', fd, 'inherit'], windowsHide: true },
-    );
-    mongoOk = true;
-  } catch (err) {
-    console.error(`Mongo legacy backup FAILED (${err.message}) — skipping`);
-  }
-} finally {
-  closeSync(fd);
-}
-if (mongoOk) {
-  console.log(`  archive: ${(statSync(archive).size / 1024 / 1024).toFixed(2)} MB`);
-} else {
-  unlinkSync(archive);
-}
-
-const legacyDb = path.join(REPO_ROOT, 'server', '.data', 'db');
-if (existsSync(legacyDb)) {
-  const legacyDest = path.join(dataDir, 'legacy-dev-db');
-  cpSync(legacyDb, legacyDest, { recursive: true });
-  const n = statSync(legacyDest).size;
-  console.log(`  legacy dev DB copied (${(n / 1024 / 1024).toFixed(2)} MB)`);
-} else {
-  console.log('No legacy server/.data/db found — skipping');
-}
-
-// -----------------------------------------------------------------------------
-// 2. PostgreSQL (Supabase / self-hosted) — the authoritative data store.
-//    Resolution order: pg_dump on PATH → docker exec into the supabase-db
-//    container → supabase CLI (`supabase db dump`).
+// PostgreSQL (Docker-only) — the authoritative data store.
+// Resolution order: pg_dump on PATH → docker exec into the project's own
+// `pizzaproject-postgres-1` container.
 // -----------------------------------------------------------------------------
 const PG_ARCHIVE = path.join(dbDir, `postgres-pizza-${stamp()}.sql.gz`);
-const SUPABASE_DB_URL =
-  process.env.DATABASE_URL || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+const DEFAULT_DATABASE_URL = `postgresql://${PG_USER}:postgres@127.0.0.1:5432/${PG_DB}`;
 
 const pipeToGz = (cmd, args) =>
   new Promise((resolve, reject) => {
@@ -106,7 +65,7 @@ try {
     label: 'pg_dump (PATH)',
     run: () =>
       pipeToGz('pg_dump', [
-        `--dbname=${SUPABASE_DB_URL}`,
+        `--dbname=${process.env.DATABASE_URL || DEFAULT_DATABASE_URL}`,
         '--no-owner',
         '--no-privileges',
         '--no-comments',
@@ -118,44 +77,18 @@ try {
 
 if (!method) {
   try {
-    execFileSync('docker', ['exec', 'supabase-db', 'pg_dump', '--version'], { stdio: 'ignore', windowsHide: true });
+    execFileSync('docker', ['exec', PG_CONTAINER, 'pg_dump', '--version'], { stdio: 'ignore', windowsHide: true });
     method = {
-      label: 'docker exec supabase-db (pg_dump)',
+      label: `docker exec ${PG_CONTAINER} (pg_dump)`,
       run: () =>
         pipeToGz('docker', [
-          'exec', 'supabase-db', 'pg_dump',
-          '-U', 'postgres', '-d', 'postgres',
+          'exec', PG_CONTAINER, 'pg_dump',
+          '-U', PG_USER, '-d', PG_DB,
           '--no-owner', '--no-privileges', '--no-comments',
         ]),
     };
   } catch {
-    /* docker unavailable — try supabase CLI */
-  }
-}
-
-if (!method) {
-  // On Windows, spawn .cmd shims (npx) via cmd.exe to avoid EINVAL issues.
-  const runNpx = (args, opts = {}) =>
-    process.platform === 'win32'
-      ? execFileSync('cmd.exe', ['/c', 'npx', '--yes', ...args], { stdio: 'ignore', windowsHide: true, ...opts })
-      : execFileSync('npx', ['--yes', ...args], { stdio: 'ignore', windowsHide: true, ...opts });
-  try {
-    runNpx(['supabase', '--version']);
-    const tmpSql = path.join(REPO_ROOT, `.supabase-dump-${Date.now()}.sql`);
-    method = {
-      label: 'supabase CLI (db dump)',
-      run: async () => {
-        try {
-          runNpx(['supabase', 'db', 'dump', '--db-url', SUPABASE_DB_URL, '--file', tmpSql], { stdio: 'inherit' });
-          const gz = gzipSync(readFileSync(tmpSql));
-          writeFileSync(PG_ARCHIVE, gz);
-        } finally {
-          if (existsSync(tmpSql)) unlinkSync(tmpSql);
-        }
-      },
-    };
-  } catch {
-    /* no Postgres backup toolchain at all */
+    /* no docker either */
   }
 }
 
@@ -169,7 +102,7 @@ if (method) {
     console.error(`Postgres backup FAILED: ${err.message} — skipping`);
   }
 } else {
-  console.log('No Postgres backup method available (pg_dump, supabase-db container, or supabase CLI not found) — skipping');
+  console.log('No Postgres backup method available (pg_dump on PATH or docker container) — skipping');
 }
 
 console.log(`\nBackup complete -> ${BACKUP_DIR}`);

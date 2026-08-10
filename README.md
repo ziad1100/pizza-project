@@ -2,7 +2,7 @@
 
 Full-stack restaurant platform (مطعم عرابي) — an RTL-first bilingual (Arabic/English)
 storefront, a customer dashboard, and an admin panel, backed by an Express REST API on
-PostgreSQL (Supabase) with Redis caching, BullMQ queues, role-based access control, and a
+PostgreSQL (Docker) with Redis caching, BullMQ queues, role-based access control, and a
 hardened security posture.
 
 > Detailed documentation: **[PROJECT.md](./PROJECT.md)** (architecture, DB, seeding),
@@ -13,7 +13,7 @@ hardened security posture.
 
 - **Client**: React 19, Vite 8, TypeScript, Tailwind CSS v4, Redux Toolkit, TanStack Query v5,
   react-hook-form + zod, i18next (ar/en, RTL), react-router v8, sonner, swiper, framer-motion
-- **Server**: Express, TypeScript, PostgreSQL (`pg` + Supabase), Redis (ioredis) + BullMQ,
+- **Server**: Express, TypeScript, PostgreSQL (`pg`, Docker), Redis (ioredis) + BullMQ,
   zod, helmet, express-rate-limit, multer, nodemailer, Passport (Google/Facebook), JWT
 - **Monorepo**: npm workspaces (root + `server`), single root `npm install`
 
@@ -25,11 +25,11 @@ hardened security posture.
    npm ci
    ```
 
-2. **Database** — PostgreSQL is required (`DATABASE_URL`). Easiest local dev DB:
+2. **Database** — PostgreSQL is required (`DATABASE_URL`). The project ships its own
+   Docker Postgres (schema auto-applies on first start):
 
    ```sh
-   supabase start        # local dev Postgres (or any PG via DATABASE_URL)
-   # then use the DB URL from `supabase status` as DATABASE_URL
+   docker compose up -d postgres redis
    ```
 
 3. **Configure the server** — no defaults are allowed:
@@ -45,7 +45,7 @@ hardened security posture.
 4. **Run** (from repo root):
 
    ```sh
-   npm run seed        # destructive reseed: roles, 68-item ORABI menu, demo users
+   npm run seed        # idempotent seed: roles, 68-item ORABI menu, demo users (skips if data exists; SEED_RESET=1 forces a wipe)
    npm run dev:all     # Vite client (:5173) + API server (:5000)
    ```
 
@@ -63,13 +63,14 @@ npm run smoke:ui      # puppeteer end-to-end (dev servers must be running)
 ```
 
 Tests run against a disposable Postgres: a `postgres:16-alpine` container on port 54329
-(autostarted), or any PG via `TEST_DATABASE_URL`.
+(autostarted, schema from `server/src/database/migrations/`), or any PG via
+`TEST_DATABASE_URL`.
 
 ## Environment
 
 Documented inline in `server/.env.example` (including a production checklist).
 **Required**: `DATABASE_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`. The server refuses
-to boot without them (no insecure defaults). Optional: `SUPABASE_*`, `REDIS_URL`,
+to boot without them (no insecure defaults). Optional: `REDIS_URL`,
 `CLOUDINARY_*`, `SMTP_*`, `GOOGLE_*`/`FACEBOOK_*`, `ADMIN_REGISTER_CODE`, rate-limit knobs.
 
 ## Security
@@ -81,7 +82,7 @@ plus `docs/SECURITY.md`, `docs/AUTHENTICATION.md`, `docs/ADMIN_AUTHORIZATION.md`
 
 ## Backups
 
-`npm run backup` = Postgres dump (pg_dump / Supabase CLI) + legacy Mongo dump + git commit
+`npm run backup` = Postgres dump (pg_dump / Docker container) + git commit
 + push; archives land in `OneDrive\PizzaBackups` (auto cloud-synced). Full runbook:
 **[BACKUP.md](./BACKUP.md)**.
 
@@ -89,5 +90,6 @@ plus `docs/SECURITY.md`, `docs/AUTHENTICATION.md`, `docs/ADMIN_AUTHORIZATION.md`
 
 - `npm run build` + `npm run build:server`, then `npm start` (serves SPA + API on `PORT`,
   default 5000) — or `docker compose up --build`.
-- Requires PostgreSQL (Supabase), Redis for cache/queues, and real JWT/SMTP/Cloudinary/OAuth
-  config — see the production checklist in `server/.env.example`.
+- Requires PostgreSQL (Docker Postgres or any managed PG), Redis for cache/queues, and
+  real JWT/SMTP/Cloudinary/OAuth config — see the production checklist in
+  `server/.env.example`.

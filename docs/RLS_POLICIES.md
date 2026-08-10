@@ -5,7 +5,9 @@ Row Level Security posture (documented, no policy changes in this pass).
 ## Current state
 
 - RLS is enabled with public-facing policies in
-  `supabase/migrations/20250101000000_init.sql`.
+  `server/src/database/migrations/001_init.sql` (`anon` / `authenticated` /
+  `service_role` roles are created by the migration so the policies run on stock
+  Postgres).
 - The API connects as the superuser/owner account, which bypasses RLS at the table
   level — server-side authz is therefore the primary boundary (audit finding S12,
   `documented`).

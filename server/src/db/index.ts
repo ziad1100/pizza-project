@@ -1,4 +1,3 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Pool, type PoolClient } from 'pg';
 import env from '../config/env';
 import { ApiError } from '../utils/ApiError';
@@ -70,23 +69,10 @@ export const apiErrorFromPg = (err: unknown): ApiError => {
   return new ApiError(500, 'Database error');
 };
 
-let supa: SupabaseClient | null = null;
-/** Supabase client (service-role, server-only). Used for RPC/storage; SQL pool is the primary path. */
-export const getSupabase = (): SupabaseClient | null => {
-  if (!env.supabaseServiceRoleKey || !env.supabaseUrl) return null;
-  if (!supa) {
-    supa = createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-  }
-  return supa;
-};
-
 export const disconnectDb = async (): Promise<void> => {
   try {
     await pool.end();
   } catch {
     /* already closed */
   }
-  supa = null;
 };

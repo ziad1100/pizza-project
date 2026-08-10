@@ -81,9 +81,9 @@ npm test                # = vitest run (server workspace)
 
 `server/src/test/setup.ts` bootstraps a throwaway Postgres container (`orabi-test`) on every run:
 
-1. starts a `postgres:16` container with `POSTGRES_HOST_AUTH_METHOD=trust`,
-2. pre-creates the `anon` / `authenticated` / `service_role` roles the migration expects,
-3. applies `supabase/migrations/20250101000000_init.sql`,
+1. starts a `postgres:16-alpine` container with `POSTGRES_HOST_AUTH_METHOD=trust`,
+2. applies `server/src/database/migrations/001_init.sql` (which creates the
+   `anon` / `authenticated` / `service_role` roles itself),
 4. seeds minimal per-suite data; tests hit the real schema and the real repos.
 
 Requirements: Docker running, port 5433 free. The DB is dropped automatically; no seed data is

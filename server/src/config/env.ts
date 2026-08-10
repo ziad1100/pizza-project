@@ -40,12 +40,7 @@ const env = {
   isProd,
   port: Number(process.env.PORT) || 5000,
 
-  mongoUri: process.env.MONGO_URI || '',
-
   databaseUrl: requireEnv('DATABASE_URL'),
-  supabaseUrl: process.env.SUPABASE_URL || 'http://127.0.0.1:54321',
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
   pgMaxPoolSize: Number(process.env.PG_MAX_POOL_SIZE) || 20,
 
   redisUrl: process.env.REDIS_URL || '',

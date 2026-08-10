@@ -57,8 +57,8 @@ let pool: pg.Pool | null = null;
 
 const migrationPath = (): string => {
   const candidates = [
-    path.resolve(import.meta.dirname, '..', '..', '..', 'supabase', 'migrations', '20250101000000_init.sql'),
-    path.resolve('supabase/migrations/20250101000000_init.sql'),
+    path.resolve(import.meta.dirname, '..', 'database', 'migrations', '001_init.sql'),
+    path.resolve('server/src/database/migrations/001_init.sql'),
   ];
   for (const c of candidates) {
     try {
@@ -68,16 +68,12 @@ const migrationPath = (): string => {
       /* try next */
     }
   }
-  throw new Error('Unable to locate supabase/migrations/20250101000000_init.sql');
-
+  throw new Error('Unable to locate database migrations 001_init.sql');
 };
 
 const applySchemaIfNeeded = async (client: pg.Pool): Promise<void> => {
   const { rows } = await client.query<{ t: string }>(`SELECT to_regclass('public.users')::text AS t`);
   if (rows[0]?.t) return;
-  for (const role of ['anon', 'authenticated', 'service_role']) {
-    await client.query(`DO $$ BEGIN CREATE ROLE ${role} NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
-  }
   const sql = readFileSync(migrationPath(), 'utf8');
   await client.query(sql);
 };
