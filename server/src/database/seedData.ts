@@ -163,7 +163,7 @@ export const seedSections: SeedSection[] = [
         items: [
           { ar: 'بطاطس', en: 'Potato Crepe', ingredients: ['كريب', 'بطاطس مقلية', 'صوص'], tags: [...crepeTags, ...vegTags], prices: [40, null, null] },
           { ar: 'مشروم', en: 'Mushroom Crepe', ingredients: ['كريب', 'مشروم', 'جبن'], tags: [...crepeTags, ...vegTags], prices: [50, null, null] },
-          { ar: 'موتزريلا', en: 'Mozzarella Crepe', ingredients: ['كريب', 'موتزريلا'], tags: [...crepeTags, ...cheeseTags], prices: [50, null, null], image: '/images/products/mozzarella-cheese.jpg' },
+          { ar: 'موتزريلا', en: 'Mozzarella Crepe', ingredients: ['كريب', 'موتزريلا'], tags: [...crepeTags, ...cheeseTags], prices: [50, null, null] },
           { ar: 'جبنه رومي', en: 'Roman Cheese Crepe', ingredients: ['كريب', 'جبن رومي'], tags: [...crepeTags, ...cheeseTags], prices: [60, null, null], image: '/images/products/roumy-cheese-cheese.jpg' },
           { ar: 'بطاطس شيدر', en: 'Cheddar Potato Crepe', ingredients: ['كريب', 'بطاطس', 'شيدر'], tags: [...crepeTags, ...vegTags], prices: [55, null, null] },
         ],

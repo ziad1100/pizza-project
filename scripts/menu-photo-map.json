@@ -19,11 +19,11 @@
     "category": "Appetizers - المقبلات",
     "sub": "Appetizers",
     "file": "cheddar-potato-appetizers.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "cheddar-potato-appetizers.jpg",
-    "credit": "by 2.0",
-    "attribution": "@joefoodie",
-    "sourceUrl": "https://api.openverse.org/v1/images/07d0f908-f9bd-4d28-a5e0-2d80199a6f11/thumb/"
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Shah Naisargi",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1e/LoadedCheeseFries_C2Cafe_Mumbai.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 3,
@@ -32,11 +32,11 @@
     "category": "Appetizers - المقبلات",
     "sub": "Appetizers",
     "file": "baked-mozzarella-potato-appetizers.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "baked-mozzarella-potato-appetizers.jpg",
-    "credit": "by-sa 2.0",
-    "attribution": "avlxyz",
-    "sourceUrl": "https://api.openverse.org/v1/images/2b8d20cc-156e-4556-9003-adecc6f41318/thumb/"
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Peachyeung316",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Baked_potato_with_cream_and_cheese_in_ymca.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 4,
@@ -81,11 +81,11 @@
     "category": "Pasta - باستا",
     "sub": "Pasta",
     "file": "meat-pasta-pasta.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "meat-pasta-pasta.jpg",
-    "credit": "by-sa 2.0",
-    "attribution": "Tim Patterson",
-    "sourceUrl": "https://api.openverse.org/v1/images/635578d9-0fc2-403b-922f-2213fab25602/thumb/"
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Amin",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/a/aa/Spaghetti_bolognese_pasta.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 8,
@@ -94,11 +94,11 @@
     "category": "Pasta - باستا",
     "sub": "Pasta",
     "file": "alfredo-pasta-pasta.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "alfredo-pasta-pasta.jpg",
-    "credit": "by 2.0",
-    "attribution": "kae71463",
-    "sourceUrl": "https://api.openverse.org/v1/images/2290610c-b30b-43c2-bfba-aa02bd41862e/thumb/"
+    "credit": "CC BY 2.0",
+    "attribution": "Robert Banh",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/1/11/Fettuccine_Alfredo.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 9,
@@ -286,11 +286,11 @@
     "category": "Chicken Crepe - كريب الفراخ",
     "sub": "Chicken Crepe",
     "file": "bbq-chicken-crepe-chicken-crepe.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "bbq-chicken-crepe-chicken-crepe.jpg",
-    "credit": "by 2.0",
-    "attribution": "elsie.hui",
-    "sourceUrl": "https://api.openverse.org/v1/images/85c9d1e2-f317-40c1-ae0c-af7987400859/thumb/"
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Slakbibi",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/f/fc/%D9%83%D8%B1%D9%8A%D8%A8_%D9%85%D8%A7%D9%84%D8%AD_%D8%A8%D8%A7%D9%84%D8%AF%D8%AC%D8%A7%D8%AC.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 27,
@@ -501,11 +501,11 @@
     "category": "Assorted Crepe - كريب المتنوع",
     "sub": "Assorted Crepe",
     "file": "potato-crepe-assorted-crepe.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "potato-crepe-assorted-crepe.jpg",
-    "credit": "by-sa 2.0",
-    "attribution": "avlxyz",
-    "sourceUrl": "https://api.openverse.org/v1/images/d10988a5-e43a-4263-9e3c-ab18519aed2c/thumb/"
+    "credit": "CC0",
+    "attribution": "Daderot",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/2/21/Savoyarde_buckwheat_crepe%2C_with_prosciutto%2C_cheese%2C_potato%2C_shallots%2C_cornichons_-_San_Francisco%2C_CA.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 47,
@@ -514,11 +514,11 @@
     "category": "Assorted Crepe - كريب المتنوع",
     "sub": "Assorted Crepe",
     "file": "mushroom-crepe-assorted-crepe.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "mushroom-crepe-assorted-crepe.jpg",
-    "credit": "by-sa 2.0",
-    "attribution": "avlxyz",
-    "sourceUrl": "https://api.openverse.org/v1/images/209e344e-1a3b-4fe3-b34d-24d28596ff5e/thumb/"
+    "credit": "CC0",
+    "attribution": "Andy Li",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/8/88/Cr%C3%AApes_roul%C3%A9es_with_portobello_mushrooms%2C_leeks%2C_cr%C3%A8me_fraiche%2C_mixed_leaves_-_Petit_Pois_Restaurant_2024-07-11.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 48,
@@ -527,8 +527,11 @@
     "category": "Assorted Crepe - كريب المتنوع",
     "sub": "Assorted Crepe",
     "file": "mozzarella-crepe-assorted-crepe.jpg",
-    "source": "reused",
-    "photo": "mozzarella-cheese.jpg"
+    "source": "commons",
+    "photo": "mozzarella-crepe-assorted-crepe.jpg",
+    "credit": "CC BY 2.0",
+    "attribution": "Geoff Peters from Vancouver, BC, Canada",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/0/01/Ham_and_cheese_crepe_%283275485903%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 49,
@@ -557,11 +560,11 @@
     "category": "Delivery Cans - السفرة",
     "sub": "Delivery Cans",
     "file": "regular-can-delivery-cans.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "regular-can-delivery-cans.jpg",
-    "credit": "by-sa 2.0",
-    "attribution": "timsackton",
-    "sourceUrl": "https://api.openverse.org/v1/images/518918bc-cad7-42c3-81cb-51c36a10ddd9/thumb/"
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Acabashi",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/1/18/Empty_takeaway_cheeseburger_box_Romford_outdoor_market_at_Market_Place_Romford_London_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 52,
@@ -580,11 +583,11 @@
     "category": "Delivery Cans - السفرة",
     "sub": "Delivery Cans",
     "file": "super-can-delivery-cans.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "super-can-delivery-cans.jpg",
-    "credit": "by-sa 2.0",
-    "attribution": "globalreset",
-    "sourceUrl": "https://api.openverse.org/v1/images/afa16148-9b7e-4582-af9c-fcf9a493ab21/thumb/"
+    "credit": "CC BY-SA 3.0",
+    "attribution": "Udhayinfo1",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/5/57/Aluminium_Foil_Container.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 54,
@@ -593,11 +596,11 @@
     "category": "Delivery Cans - السفرة",
     "sub": "Delivery Cans",
     "file": "jumbo-can-delivery-cans.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "jumbo-can-delivery-cans.jpg",
-    "credit": "cc0 1.0",
-    "attribution": "Bernard Spragg",
-    "sourceUrl": "https://api.openverse.org/v1/images/ee4edc0d-a84d-48e7-b8bb-93fe4dd8b5e1/thumb/"
+    "credit": "CC BY-SA 3.0",
+    "attribution": "SKopp",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c4/Aluminium_take-out_food_tray_with_cover.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 55,
@@ -645,11 +648,11 @@
     "category": "Tagine - الطواجن",
     "sub": "Tagine",
     "file": "chicken-mix-tagine-tagine.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "chicken-mix-tagine-tagine.jpg",
-    "credit": "by 2.0",
-    "attribution": "Blue moon in her eyes",
-    "sourceUrl": "https://api.openverse.org/v1/images/fa5bd9fd-1fbf-4657-99f1-7efe8871ebcf/thumb/"
+    "credit": "CC BY 2.0",
+    "attribution": "Foodista",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8a/Moroccan_food-Chicken_tagine_with_preserved_lemons_and_olives-01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 59,
@@ -678,11 +681,11 @@
     "category": "Dessert - الحلو",
     "sub": "Dessert",
     "file": "regular-rice-dessert.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "regular-rice-dessert.jpg",
-    "credit": "by 2.0",
-    "attribution": "kurmanstaff",
-    "sourceUrl": "https://api.openverse.org/v1/images/078b909f-52eb-4f35-818a-67a3caefe777/thumb/"
+    "credit": "CC0",
+    "attribution": "Anna Frodesiak",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/7/77/Steamed_rice_in_bowl_01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 62,
@@ -691,11 +694,11 @@
     "category": "Dessert - الحلو",
     "sub": "Dessert",
     "file": "baked-rice-dessert.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "baked-rice-dessert.jpg",
-    "credit": "by 2.0",
-    "attribution": "Ella's Kitchen Company Limited",
-    "sourceUrl": "https://api.openverse.org/v1/images/d2075cd9-37b5-4003-b7f4-bdfb9e8c86d4/thumb/"
+    "credit": "CC BY 2.0",
+    "attribution": "Ross Berteig from Monrovia, California, USA",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/2/22/Rice_pudding_cinnamon.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 63,
