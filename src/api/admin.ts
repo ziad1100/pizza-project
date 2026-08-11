@@ -8,6 +8,7 @@ import type {
   Contact,
   Coupon,
   DashboardData,
+  DayStats,
   Offer,
   Order,
   OrderStatus,
@@ -74,12 +75,25 @@ export const adminListOrders = (params: ListParams): Promise<Paginated<Order>> =
 export const updateOrderStatus = (id: string, status: OrderStatus): Promise<Order> =>
   unwrap(api.patch<ApiEnvelope<Order>>(`/orders/${id}/status`, { status }));
 
+export const adminCancelOrder = (id: string, reason: string): Promise<Order> =>
+  unwrap(api.post<ApiEnvelope<Order>>(`/orders/${id}/admin-cancel`, { reason }));
+
+export const adminMarkComplimentary = (id: string, reason: string): Promise<Order> =>
+  unwrap(api.post<ApiEnvelope<Order>>(`/orders/${id}/complimentary`, { reason }));
+
 export const getOrderStats = (): Promise<{
   totalOrders: number;
   completedOrders: number;
-  revenue: number;
+  cancelledOrders: number;
+  refundedOrders: number;
+  complimentaryOrders: number;
   pendingOrders: number;
-}> => unwrap(api.get<ApiEnvelope<{ totalOrders: number; completedOrders: number; revenue: number; pendingOrders: number }>>('/orders/stats'));
+  revenue: number;
+  netRevenue: number;
+  grossRevenue: number;
+  discounts: number;
+  deliveryFees: number;
+}> => unwrap(api.get<ApiEnvelope<{ totalOrders: number; completedOrders: number; cancelledOrders: number; refundedOrders: number; complimentaryOrders: number; pendingOrders: number; revenue: number; netRevenue: number; grossRevenue: number; discounts: number; deliveryFees: number }>>('/orders/stats'));
 
 export const adminListUsers = (params: ListParams): Promise<Paginated<User>> =>
   unwrap(
@@ -185,6 +199,12 @@ export const updateSettings = (payload: Record<string, unknown>): Promise<Settin
 
 export const getDashboard = (): Promise<DashboardData> =>
   unwrap(api.get<ApiEnvelope<DashboardData>>('/analytics/dashboard'));
+
+export const getDashboardDay = (date: string): Promise<DayStats> =>
+  unwrap(api.get<ApiEnvelope<DayStats>>('/analytics/day', { params: { date } }));
+
+export const refreshDashboard = (): Promise<{ ok: boolean }> =>
+  unwrap(api.post<ApiEnvelope<{ ok: boolean }>>('/analytics/refresh'));
 
 export interface ReviewListParams extends ListParams {
   isApproved?: string;

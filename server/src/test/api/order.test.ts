@@ -220,6 +220,47 @@ describe('create order', () => {
     expect(res.body.data.total).toBe(120);
   });
 
+  it('ignores client-supplied subtotal/deliveryFee/total and uses database values', async () => {
+    const { product } = await setupCatalog();
+    const user = await createUser();
+    const res = await api
+      .post(ORDERS)
+      .set(bearer(user.id))
+      .send(
+        orderBody(toId(product._id), {
+          items: [{ product: toId(product._id), qty: 2 }],
+          deliveryFee: 0,
+          subtotal: 1,
+          total: 1,
+        }),
+      );
+    expect(res.status).toBe(201);
+    const { subtotal, deliveryFee, total } = res.body.data;
+    expect(subtotal).toBe(240);
+    expect(deliveryFee).toBe(25);
+    expect(total).toBe(265);
+  });
+
+  it('uses only the delivery fee stored in settings', async () => {
+    const { product } = await setupCatalog();
+    await settingsRepo.upsertSetting('deliveryFee', 35);
+    const user = await createUser();
+    const res = await api
+      .post(ORDERS)
+      .set(bearer(user.id))
+      .send(
+        orderBody(toId(product._id), {
+          items: [{ product: toId(product._id), qty: 2 }],
+          deliveryFee: 0,
+        }),
+      );
+    expect(res.status).toBe(201);
+    const { subtotal, deliveryFee, total } = res.body.data;
+    expect(subtotal).toBe(240);
+    expect(deliveryFee).toBe(35);
+    expect(total).toBe(275);
+  });
+
   it('increments daily analytics', async () => {
     const { product } = await setupCatalog();
     const user = await createUser();
@@ -314,14 +355,24 @@ describe('history & stats', () => {
     expect(dbCount).toBe(1);
   });
 
-  it('exposes revenue stats to staff roles', async () => {
+  it('exposes revenue stats to staff roles (completed orders only)', async () => {
     const { product } = await setupCatalog();
     const customer = await createUser();
-    await api.post(ORDERS).set(bearer(customer.id)).send(orderBody(toId(product._id)));
+    const created = await api.post(ORDERS).set(bearer(customer.id)).send(orderBody(toId(product._id)));
+    expect(created.status).toBe(201);
+    const orderId = created.body.data._id;
+    const admin = await createUser({ role: 'admin' });
+    for (const next of ['preparing', 'on_delivery', 'completed']) {
+      const res = await api.patch(`${ORDERS}/${orderId}/status`).set(bearer(admin.id)).send({ status: next });
+      expect(res.status).toBe(200);
+    }
     const manager = await createUser({ role: 'manager' });
     const res = await api.get(`${ORDERS}/stats`).set(bearer(manager.id));
     expect(res.status).toBe(200);
     expect(res.body.data.totalOrders).toBe(1);
+    expect(res.body.data.completedOrders).toBe(1);
     expect(res.body.data.revenue).toBe(145);
+    expect(res.body.data.netRevenue).toBe(145);
+    expect(res.body.data.grossRevenue).toBe(145);
   });
 });

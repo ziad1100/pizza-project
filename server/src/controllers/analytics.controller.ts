@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import * as analyticsRepo from '../db/analytics';
+import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ORDER_STATUS } from '../constants';
@@ -34,11 +35,18 @@ export const dashboard = asyncHandler(async (_req: Request, res: Response) => {
   res.json(
     new ApiResponse(200, {
       revenue: totals.revenue,
+      netRevenue: totals.netRevenue,
+      grossRevenue: totals.grossRevenue,
+      discounts: totals.discounts,
+      deliveryFees: totals.deliveryFees,
       orders: totals.orders,
       customers: totals.customers,
       products: totals.products,
       pendingOrders: pending,
       completedOrders: completed,
+      cancelledOrders: totals.cancelledOrders,
+      refundedOrders: totals.refundedOrders,
+      complimentaryOrders: totals.complimentaryOrders,
       recentRevenue: recent.revenue,
       recentOrders: recent.orders,
       recentCustomers: recent.customers,
@@ -49,4 +57,17 @@ export const dashboard = asyncHandler(async (_req: Request, res: Response) => {
       topProducts,
     }),
   );
+});
+
+export const day = asyncHandler(async (req: Request, res: Response) => {
+  const date = String(req.query.date ?? '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new ApiError(400, 'A valid date (YYYY-MM-DD) is required');
+  }
+  const stats = await analyticsRepo.dayStats(date);
+  res.json(new ApiResponse(200, { date, ...stats }));
+});
+
+export const refresh = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(new ApiResponse(200, { ok: true }, 'Dashboard cache invalidated'));
 });

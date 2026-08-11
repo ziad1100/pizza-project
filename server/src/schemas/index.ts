@@ -1,5 +1,5 @@
 export { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, changePasswordSchema } from './auth';
-export { createOrderSchema, updateStatusSchema } from './order';
+export { createOrderSchema, updateStatusSchema, adminCancelOrderSchema, markComplimentarySchema } from './order';
 export { addItemSchema, updateItemSchema, applyCouponSchema } from './cart';
 export { productCreateSchema, productUpdateSchema } from './product';
 export { categoryCreateSchema, categoryUpdateSchema } from './category';

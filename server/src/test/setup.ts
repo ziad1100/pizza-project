@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import pg from 'pg';
@@ -55,33 +55,55 @@ const waitForDb = async (client: pg.Pool): Promise<void> => {
 
 let pool: pg.Pool | null = null;
 
-const migrationPath = (): string => {
+const migrationsDir = (): string => {
   const candidates = [
-    path.resolve(import.meta.dirname, '..', 'database', 'migrations', '001_init.sql'),
-    path.resolve('server/src/database/migrations/001_init.sql'),
+    path.resolve(import.meta.dirname, '..', 'database', 'migrations'),
+    path.resolve('server/src/database/migrations'),
+    path.resolve('src/database/migrations'),
   ];
   for (const c of candidates) {
     try {
-      readFileSync(c);
-      return c;
+      const st = readFileSync(path.join(c, '001_init.sql'));
+      if (st) return c;
     } catch {
       /* try next */
     }
   }
-  throw new Error('Unable to locate database migrations 001_init.sql');
+  throw new Error('Unable to locate database migrations directory');
 };
 
 const applySchemaIfNeeded = async (client: pg.Pool): Promise<void> => {
+  await client.query(
+    `CREATE TABLE IF NOT EXISTS schema_migrations (
+       name text PRIMARY KEY,
+       "appliedAt" timestamptz NOT NULL DEFAULT now()
+     )`,
+  );
+  // Databases created before the migration runner existed (e.g. the persisted
+  // test container) already have the base schema applied — record it so 001
+  // isn't re-run, while later migration files still apply below.
   const { rows } = await client.query<{ t: string }>(`SELECT to_regclass('public.users')::text AS t`);
-  if (rows[0]?.t) return;
-  const sql = readFileSync(migrationPath(), 'utf8');
-  await client.query(sql);
+  if (rows[0]?.t) {
+    await client.query(
+      `INSERT INTO schema_migrations (name) SELECT '001_init.sql' WHERE NOT EXISTS (SELECT 1 FROM schema_migrations WHERE name = '001_init.sql')`,
+    );
+  }
+  const dir = migrationsDir();
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  for (const file of files) {
+    const applied = await client.query('SELECT 1 FROM schema_migrations WHERE name = $1', [file]);
+    if (applied.rows.length) continue;
+    const sql = readFileSync(path.join(dir, file), 'utf8');
+    await client.query(sql);
+    await client.query('INSERT INTO schema_migrations (name) VALUES ($1)', [file]);
+  }
 };
 
 const truncateAll = async (client: pg.Pool): Promise<void> => {
   const { rows } = await client.query<{ names: string }>(
     `SELECT string_agg('"' || tablename || '"', ', ') AS names
-     FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'analytics'`,
+     FROM pg_tables WHERE schemaname = 'public'
+       AND tablename NOT IN ('analytics', 'schema_migrations')`,
   );
   if (rows[0]?.names) await client.query(`TRUNCATE TABLE ${rows[0].names} RESTART IDENTITY CASCADE`);
   await client.query('DELETE FROM analytics');

@@ -1,10 +1,14 @@
 ﻿import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
-import { Banknote, Package, ShoppingBag, TrendingUp, Users } from 'lucide-react';
-import { adminListOrders, getDashboard } from '@/api/admin';
-import { Card, CardContent, EmptyState, Skeleton } from '@/components/ui/Card';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Banknote, CalendarDays, Package, RefreshCw, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import { toast } from 'sonner';
+import { adminListOrders, getDashboard, getDashboardDay, refreshDashboard } from '@/api/admin';
+import { getErrorMessage } from '@/lib/api';
+import { Card, CardContent, EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 import { PageHeader, StatusBadge, TableWrap, Td, Th } from '@/components/admin/primitives';
 import { cn, formatPrice } from '@/lib/utils';
 
@@ -19,6 +23,7 @@ const PERIOD_KEYS: Record<PeriodKey, string> = {
 export function AdminIndexPage() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
+  const queryClient = useQueryClient();
 
   const dashboard = useQuery({ queryKey: ['admin', 'dashboard'], queryFn: getDashboard });
   const recent = useQuery({
@@ -27,6 +32,25 @@ export function AdminIndexPage() {
   });
 
   const [period, setPeriod] = useState<PeriodKey>('today');
+  const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const refreshMutation = useMutation({
+    mutationFn: refreshDashboard,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
+      ]);
+      toast.success(t('admin.refreshSuccess'));
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const dayStats = useQuery({
+    queryKey: ['admin', 'day', day],
+    queryFn: () => getDashboardDay(day),
+    enabled: Boolean(day),
+  });
 
   const stats = [
     { key: t('admin.revenue'), value: dashboard.data ? formatPrice(dashboard.data.revenue, lang) : '—', icon: Banknote },
@@ -36,6 +60,31 @@ export function AdminIndexPage() {
     { key: t('admin.overview.recentRevenue'), value: dashboard.data ? formatPrice(dashboard.data.recentRevenue, lang) : '—', icon: TrendingUp },
     { key: t('admin.overview.products'), value: dashboard.data?.products ?? '—', icon: Package },
   ];
+
+  const financial = dashboard.data
+    ? [
+        { key: t('admin.totalOrders'), value: String(dashboard.data.orders), tone: 'text-night-50' },
+        { key: t('admin.completedOrders'), value: String(dashboard.data.completedOrders), tone: 'text-emerald-400' },
+        { key: t('admin.cancelledOrders'), value: String(dashboard.data.cancelledOrders), tone: 'text-red-400' },
+        { key: t('admin.refundedOrders'), value: String(dashboard.data.refundedOrders), tone: 'text-slate-300' },
+        { key: t('admin.complimentaryOrders'), value: String(dashboard.data.complimentaryOrders), tone: 'text-gold-400' },
+        { key: t('admin.grossRevenue'), value: formatPrice(dashboard.data.grossRevenue, lang), tone: 'text-night-50' },
+        { key: t('admin.discounts'), value: formatPrice(dashboard.data.discounts, lang), tone: 'text-amber-400' },
+        { key: t('admin.deliveryFees'), value: formatPrice(dashboard.data.deliveryFees, lang), tone: 'text-night-50' },
+        { key: t('admin.netRevenue'), value: formatPrice(dashboard.data.netRevenue, lang), tone: 'text-emerald-400' },
+      ]
+    : [];
+
+  const dayRows = dayStats.data
+    ? [
+        { key: t('admin.nav.orders'), value: String(dayStats.data.orders) },
+        { key: t('admin.completedOrders'), value: String(dayStats.data.completed) },
+        { key: t('admin.cancelledOrders'), value: String(dayStats.data.cancelled) },
+        { key: t('admin.refundedOrders'), value: String(dayStats.data.refunded) },
+        { key: t('admin.complimentaryOrders'), value: String(dayStats.data.complimentary) },
+        { key: t('admin.revenue'), value: formatPrice(dayStats.data.revenue, lang) },
+      ]
+    : [];
 
   const trend = dashboard.data?.revenueTrend ?? [];
   const trendData = trend.slice(-7);
@@ -56,9 +105,33 @@ export function AdminIndexPage() {
 
   return (
     <div>
-      <PageHeader title={t('admin.dashboardHeader')} />
+      <PageHeader
+        title={t('admin.dashboardHeader')}
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            loading={refreshMutation.isPending}
+            disabled={refreshMutation.isPending}
+            onClick={() => refreshMutation.mutate()}
+          >
+            <RefreshCw className="h-4 w-4" />
+            {t('admin.refresh')}
+          </Button>
+        }
+      />
 
-      {dashboard.isLoading ? (
+      {dashboard.isError ? (
+        <Card>
+          <CardContent>
+            <ErrorState
+              title={t('common.loadError')}
+              onRetry={() => dashboard.refetch()}
+              retryLabel={t('common.retry')}
+            />
+          </CardContent>
+        </Card>
+      ) : dashboard.isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
@@ -81,6 +154,65 @@ export function AdminIndexPage() {
           ))}
         </div>
       )}
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardContent className="p-5">
+            <h3 className="mb-4 text-sm font-bold text-night-200">{t('admin.financialTitle')}</h3>
+            {financial.length > 0 ? (
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                {financial.map(({ key, value, tone }) => (
+                  <div key={key}>
+                    <dt className="text-xs text-night-500">{key}</dt>
+                    <dd className={`mt-0.5 text-lg font-extrabold ${tone}`}>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <EmptyState title={t('admin.emptyList')} icon={<Banknote className="h-10 w-10" />} />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-night-200">{t('admin.dailyTitle')}</h3>
+              <Input
+                type="date"
+                value={day}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setDay(e.target.value)}
+                className="h-9 w-44 text-sm"
+                aria-label={t('admin.selectDate')}
+              />
+            </div>
+            {dayStats.isLoading ? (
+              <Skeleton className="h-32" />
+            ) : dayStats.isError ? (
+              <ErrorState
+                title={t('common.loadError')}
+                onRetry={() => void dayStats.refetch()}
+                retryLabel={t('common.retry')}
+              />
+            ) : dayRows.length > 0 ? (
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                {dayRows.map(({ key, value }) => (
+                  <div key={key}>
+                    <dt className="flex items-center gap-1.5 text-xs text-night-500">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      {key}
+                    </dt>
+                    <dd className="mt-0.5 text-lg font-extrabold text-night-50">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <EmptyState title={t('admin.emptyList')} icon={<CalendarDays className="h-10 w-10" />} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="mt-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -232,6 +364,16 @@ export function AdminIndexPage() {
         <PageHeader title={t('admin.recentOrders')} />
         {recent.isLoading ? (
           <Skeleton className="h-40" />
+        ) : recent.isError ? (
+          <Card>
+            <CardContent>
+              <ErrorState
+                title={t('common.loadError')}
+                onRetry={() => recent.refetch()}
+                retryLabel={t('common.retry')}
+              />
+            </CardContent>
+          </Card>
         ) : recent.data && recent.data.items.length > 0 ? (
           <TableWrap>
             <thead>

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectDB, disconnectDB } from './connection';
 import { ensureRolePermissions } from './roleSync';
+import { applyMigrations } from './migrate';
 import * as usersRepo from '../db/users';
 import * as categoriesRepo from '../db/categories';
 import * as productsRepo from '../db/products';
@@ -358,10 +359,7 @@ const seedCart = async (userIds: Record<string, string>): Promise<void> => {
 
 const ensureSchema = async (): Promise<void> => {
   const table = await row<{ t: string | null }>(`SELECT to_regclass('public.products')::text AS t`);
-  if (table?.t) return;
-  const sql = fs.readFileSync(new URL('./migrations/001_init.sql', import.meta.url), 'utf8');
-  await query(sql);
-  console.log('[seed] schema applied (migrations/001_init.sql)');
+  if (!table?.t) await applyMigrations();
 };
 
 const isSeeded = async (): Promise<boolean> => {

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Check, ChevronLeft, ChevronRight, Search, UploadCloud, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Input, Label, Textarea } from '@/components/ui/Input';
 import { uploadImage } from '@/api/admin';
 import { cn } from '@/lib/utils';
 
@@ -75,6 +75,8 @@ const statusStyles: Record<string, string> = {
   on_delivery: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
   completed: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   cancelled: 'bg-red-500/15 text-red-400 border-red-500/30',
+  refunded: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
+  complimentary: 'bg-gold-500/15 text-gold-400 border-gold-500/30',
 };
 
 export function StatusBadge({ status }: { status: string }) {
@@ -98,6 +100,13 @@ export function ConfirmDialog({
   title,
   message,
   loading,
+  confirmLabel,
+  confirmVariant = 'primary',
+  reason,
+  onReasonChange,
+  reasonLabel,
+  reasonPlaceholder,
+  reasonRequired = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -105,17 +114,37 @@ export function ConfirmDialog({
   title: string;
   message: string;
   loading?: boolean;
+  confirmLabel?: string;
+  confirmVariant?: 'primary' | 'gold' | 'outline' | 'ghost';
+  reason?: string;
+  onReasonChange?: (v: string) => void;
+  reasonLabel?: string;
+  reasonPlaceholder?: string;
+  reasonRequired?: boolean;
 }) {
   const { t } = useTranslation();
+  const canConfirm = !reasonRequired || (reason?.trim().length ?? 0) > 0;
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm">
       <p className="text-sm text-night-300">{message}</p>
+      {reasonLabel !== undefined ? (
+        <div className="mt-4">
+          <Label className="mb-1.5 text-xs font-bold uppercase tracking-wider text-night-500">{reasonLabel}</Label>
+          <Textarea
+            value={reason}
+            onChange={(e) => onReasonChange?.(e.target.value)}
+            placeholder={reasonPlaceholder}
+            rows={3}
+            error={reasonRequired && (reason?.trim().length ?? 0) === 0}
+          />
+        </div>
+      ) : null}
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>
           {t('common.cancel')}
         </Button>
-        <Button variant="primary" size="sm" loading={loading} onClick={onConfirm}>
-          {t('common.delete')}
+        <Button variant={confirmVariant} size="sm" loading={loading} disabled={!canConfirm} onClick={onConfirm}>
+          {confirmLabel ?? t('common.delete')}
         </Button>
       </div>
     </Modal>

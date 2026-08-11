@@ -1,6 +1,7 @@
 import app from './app';
 import env from './config/env';
 import { connectDB, disconnectDB } from './database/connection';
+import { applyMigrations } from './database/migrate';
 import { ensureRolePermissions } from './database/roleSync';
 import { perfSummaryTimer, reportLatencies } from './middlewares/diagnostics';
 import { disconnectCache } from './services/cache';
@@ -8,6 +9,7 @@ import { disconnectCache } from './services/cache';
 const start = async (): Promise<void> => {
   try {
     await connectDB();
+    await applyMigrations();
     await ensureRolePermissions();
     const server = app.listen(env.port, () => {
        

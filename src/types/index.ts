@@ -199,6 +199,7 @@ export interface Post {
 export interface OrderItem {
   product: string;
   name: string;
+  nameEn?: string;
   size?: string;
   extras: { name: string; price: number }[];
   qty: number;
@@ -216,6 +217,11 @@ export interface Order {
   discount: number;
   couponCode: string;
   total: number;
+  adjustmentAmount: number;
+  isComplimentary: boolean;
+  adjustmentReason: string;
+  adjustedBy: string | { _id: string; fullName: string } | null;
+  adjustedAt: string | null;
   payment: {
     method: PaymentMethod;
     status: string;
@@ -227,12 +233,12 @@ export interface Order {
   phone: string;
   customerName: string;
   notes: string;
-  statusHistory: { status: string; changedBy: string; at: string }[];
+  statusHistory: { status: string; changedBy: string; at: string; reason?: string }[];
   createdAt: string;
   updatedAt: string;
 }
 
-export type OrderStatus = 'pending' | 'preparing' | 'on_delivery' | 'completed' | 'cancelled';
+export type OrderStatus = 'pending' | 'preparing' | 'on_delivery' | 'completed' | 'cancelled' | 'refunded' | 'complimentary';
 export type PaymentMethod = 'cash' | 'card' | 'vodafone_cash';
 
 export interface Contact {
@@ -284,11 +290,18 @@ export interface PeriodMetrics {
 
 export interface DashboardData {
   revenue: number;
+  netRevenue: number;
+  grossRevenue: number;
+  discounts: number;
+  deliveryFees: number;
   orders: number;
   customers: number;
   products: number;
   pendingOrders: number;
   completedOrders: number;
+  cancelledOrders: number;
+  refundedOrders: number;
+  complimentaryOrders: number;
   recentRevenue: number;
   recentOrders: number;
   recentCustomers: number;
@@ -297,6 +310,19 @@ export interface DashboardData {
   periodOverview: { today: PeriodMetrics; week: PeriodMetrics; month: PeriodMetrics };
   statusBreakdown: { status: string; count: number }[];
   topProducts: { _id: string; name: string; count: number; revenue: number }[];
+}
+
+export interface DayStats {
+  date: string;
+  orders: number;
+  completed: number;
+  cancelled: number;
+  refunded: number;
+  complimentary: number;
+  revenue: number;
+  grossRevenue: number;
+  discounts: number;
+  deliveryFees: number;
 }
 
 export interface ActivityLogEntry {

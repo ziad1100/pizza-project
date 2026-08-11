@@ -12,7 +12,7 @@ import { generateOrderNo } from '../utils';
 import type { AuthRequest } from '../middlewares/auth';
 import { validateCoupon } from '../services/coupon.service';
 import { enqueueOrderConfirmation } from '../services/email.service';
-import { ORDER_STATUS, PAYMENT_METHODS } from '../constants';
+import { ORDER_STATUS, ORDER_STATUS_LABELS, ORDER_STATUS_TRANSITIONS, PAYMENT_METHODS, TERMINAL_ORDER_STATUSES } from '../constants';
 import { getSettingsMap } from '../db/settings';
 
 interface OrderItemInput {
@@ -148,22 +148,78 @@ export const cancelOrder = asyncHandler(async (req: AuthRequest, res: Response) 
 export const updateStatus = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status } = req.body;
   if (!Object.values(ORDER_STATUS).includes(status)) throw new ApiError(400, 'Invalid status');
+  const current = await ordersRepo.getById(req.params.id);
+  if (!current) throw new ApiError(404, 'Order not found');
+  const allowed = ORDER_STATUS_TRANSITIONS[current.status as string] ?? [];
+  if (!allowed.includes(status)) {
+    throw new ApiError(400, `Invalid status transition from "${current.status}" to "${status}"`);
+  }
   const order = await ordersRepo.updateStatus(
     req.params.id,
     status,
     [{ status, changedBy: req.user!.id, at: new Date() }],
   );
   if (!order) throw new ApiError(404, 'Order not found');
+  const [labelAr, labelEn] = ORDER_STATUS_LABELS[status] ?? [status, status];
   await sendToUsers({
     userIds: [order.user as string],
     title: `حالة الطلب ${order.orderNo}`,
     titleEn: `Order ${order.orderNo} status`,
-    body: `تم تحديث حالة طلبك إلى ${status}`,
-    bodyEn: `Your order status is now ${status}`,
+    body: `تم تحديث حالة طلبك إلى ${labelAr}`,
+    bodyEn: `Your order status is now ${labelEn}`,
     type: 'order',
     link: `/account/orders/${order._id}`,
   });
   res.json(new ApiResponse(200, order, 'Order status updated'));
+});
+
+export const adminCancel = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const order = await ordersRepo.getById(req.params.id);
+  if (!order) throw new ApiError(404, 'Order not found');
+  if (TERMINAL_ORDER_STATUSES.includes(order.status as string)) {
+    throw new ApiError(400, 'This order cannot be cancelled');
+  }
+  const reason = String(req.body?.reason ?? '').trim();
+  const updated = await ordersRepo.adminCancel(req.params.id, [
+    { status: ORDER_STATUS.CANCELLED, changedBy: req.user!.id, at: new Date(), reason },
+  ]);
+  if (!updated) throw new ApiError(400, 'This order cannot be cancelled');
+  const cancelledUserId = typeof updated.user === 'string' ? updated.user : (updated.user as { _id: string })._id;
+  await sendToUsers({
+    userIds: [cancelledUserId],
+    title: `حالة الطلب ${updated.orderNo}`,
+    titleEn: `Order ${updated.orderNo} status`,
+    body: `تم إلغاء طلبك${reason ? ` — السبب: ${reason}` : ''}`,
+    bodyEn: `Your order has been cancelled${reason ? ` — reason: ${reason}` : ''}`,
+    type: 'order',
+    link: `/account/orders/${updated._id}`,
+  });
+  res.json(new ApiResponse(200, updated, 'Order cancelled'));
+});
+
+export const adminComplimentary = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const order = await ordersRepo.getById(req.params.id);
+  if (!order) throw new ApiError(404, 'Order not found');
+  if (TERMINAL_ORDER_STATUSES.includes(order.status as string)) {
+    throw new ApiError(400, 'This order cannot be marked as complimentary');
+  }
+  const reason = String(req.body?.reason ?? '').trim();
+  if (!reason) throw new ApiError(400, 'A reason is required');
+  const updated = await ordersRepo.markComplimentary(req.params.id, req.user!.id, reason, [
+    { status: ORDER_STATUS.COMPLIMENTARY, changedBy: req.user!.id, at: new Date(), reason },
+  ]);
+  if (!updated) throw new ApiError(400, 'This order cannot be marked as complimentary');
+  const complimentaryUserId = typeof updated.user === 'string' ? updated.user : (updated.user as { _id: string })._id;
+  await sendToUsers({
+    userIds: [complimentaryUserId],
+    title: `حالة الطلب ${updated.orderNo}`,
+    titleEn: `Order ${updated.orderNo} status`,
+    body: `طلبك أصبح مجانياً (هدية)${reason ? ` — السبب: ${reason}` : ''}`,
+    bodyEn: `Your order is now complimentary${reason ? ` — reason: ${reason}` : ''}`,
+    type: 'order',
+    link: `/account/orders/${updated._id}`,
+  });
+  res.json(new ApiResponse(200, updated, 'Order marked as complimentary'));
 });
 
 export const history = asyncHandler(async (req: AuthRequest, res: Response) => {

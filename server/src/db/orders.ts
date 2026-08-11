@@ -5,18 +5,26 @@ const ITEMS_JSON = `
   (SELECT COALESCE(jsonb_agg(jsonb_build_object(
       '_id', oi.id::text,
       'product', oi."productId"::text,
-      'name', oi.name, 'size', oi.size, 'extras', oi.extras,
+      'name', oi.name,
+      'nameEn', COALESCE(p."nameEn", oi.name),
+      'size', oi.size, 'extras', oi.extras,
       'qty', oi.qty,
       'unitPrice', oi."unitPrice"::float8,
       'lineTotal', oi."lineTotal"::float8)
     ORDER BY oi."sortOrder"), '[]'::jsonb)
-   FROM order_items oi WHERE oi."orderId" = o.id)`;
+   FROM order_items oi
+   LEFT JOIN products p ON p.id = oi."productId"
+   WHERE oi."orderId" = o.id)`;
 
 const ORDER_CORE = `
   o.id::text AS "_id",
   o."orderNo",
   o.subtotal::float8 AS "subtotal", o."deliveryFee"::float8 AS "deliveryFee",
   o.discount::float8 AS "discount", o."couponCode", o.total::float8 AS "total",
+  o."adjustmentAmount"::float8 AS "adjustmentAmount",
+  o."isComplimentary" AS "isComplimentary",
+  o."adjustmentReason" AS "adjustmentReason",
+  o."adjustedAt" AS "adjustedAt",
   o.status::text AS "status", o."deliveryAddress", o.phone, o."customerName", o.notes,
   o."statusHistory", o."createdAt", o."updatedAt",
   jsonb_build_object(
@@ -34,7 +42,11 @@ const ADMIN_ORDER_USER = `
   CASE WHEN u.id IS NULL THEN to_jsonb(o."userId"::text)
        ELSE jsonb_build_object('_id', u.id::text, 'fullName', u."fullName", 'email', u.email, 'phone', u.phone)
   END AS "user"`;
-const ADMIN_ORDER_COLS = `${ADMIN_ORDER_USER}, ${ORDER_CORE}`;
+const ADMIN_ORDER_ADJUSTED_BY = `
+  CASE WHEN ab.id IS NULL THEN to_jsonb(o."adjustedBy"::text)
+       ELSE jsonb_build_object('_id', ab.id::text, 'fullName', ab."fullName")
+  END AS "adjustedBy"`;
+const ADMIN_ORDER_COLS = `${ADMIN_ORDER_USER}, ${ADMIN_ORDER_ADJUSTED_BY}, ${ORDER_CORE}`;
 
 interface Page<T> {
   items: T[];
@@ -97,12 +109,64 @@ export const adminList = async (
     `SELECT count(*) OVER()::int AS __total, ${ADMIN_ORDER_COLS}
      FROM orders o
      LEFT JOIN users u ON u.id = o."userId"
+     LEFT JOIN users ab ON ab.id = o."adjustedBy"
      ${where}
      ORDER BY o."createdAt" DESC, o.id
      LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
     [...values, limit, (page - 1) * limit],
   )) as unknown as Array<Record<string, unknown>>;
   return toPage(rows, limit);
+};
+
+export const getAdminById = async (id: string): Promise<Record<string, unknown> | null> => {
+  const rows = await query(
+    `SELECT ${ADMIN_ORDER_COLS}
+     FROM orders o
+     LEFT JOIN users u ON u.id = o."userId"
+     LEFT JOIN users ab ON ab.id = o."adjustedBy"
+     WHERE o.id = $1::uuid LIMIT 1`,
+    [id],
+  );
+  return (rows[0] as Record<string, unknown>) ?? null;
+};
+
+const NOT_TERMINAL = `status IN ('pending'::order_status, 'preparing'::order_status, 'on_delivery'::order_status)`;
+
+export const adminCancel = async (
+  orderId: string,
+  statusHistory: unknown[],
+): Promise<Record<string, unknown> | null> => {
+  const r = await query(
+    `UPDATE orders SET status = 'cancelled'::order_status,
+       "statusHistory" = "statusHistory" || $2::jsonb
+     WHERE id = $1::uuid AND ${NOT_TERMINAL} RETURNING id`,
+    [orderId, JSON.stringify(statusHistory)],
+  );
+  if (!r.length) return null;
+  return getAdminById(orderId);
+};
+
+export const markComplimentary = async (
+  orderId: string,
+  userId: string,
+  reason: string,
+  statusHistory: unknown[],
+): Promise<Record<string, unknown> | null> => {
+  const r = await query(
+    `UPDATE orders SET
+       status = 'complimentary'::order_status,
+       "isComplimentary" = true,
+       "adjustmentAmount" = GREATEST(0, subtotal + "deliveryFee" - discount),
+       "adjustmentReason" = $3,
+       "adjustedBy" = $2::uuid,
+       "adjustedAt" = now(),
+       total = 0,
+       "statusHistory" = "statusHistory" || $4::jsonb
+     WHERE id = $1::uuid AND ${NOT_TERMINAL} RETURNING id`,
+    [orderId, userId, reason, JSON.stringify(statusHistory)],
+  );
+  if (!r.length) return null;
+  return getAdminById(orderId);
 };
 
 export const cancel = async (
@@ -139,9 +203,16 @@ export const stats = async (): Promise<Record<string, unknown>> => {
   const rows = await query(`
     SELECT
       (SELECT count(*) FROM orders)::int AS "totalOrders",
-      (SELECT count(*) FROM orders)::int AS "completedOrders",
-      (SELECT COALESCE(SUM(total), 0)::float8 FROM orders WHERE status <> 'cancelled') AS "revenue",
-      (SELECT count(*)::int FROM orders WHERE status = 'pending') AS "pendingOrders"`);
+      (SELECT count(*) FROM orders WHERE status = 'completed')::int AS "completedOrders",
+      (SELECT count(*) FROM orders WHERE status = 'cancelled')::int AS "cancelledOrders",
+      (SELECT count(*) FROM orders WHERE status = 'refunded')::int AS "refundedOrders",
+      (SELECT count(*) FROM orders WHERE status = 'complimentary')::int AS "complimentaryOrders",
+      (SELECT count(*)::int FROM orders WHERE status = 'pending') AS "pendingOrders",
+      (SELECT COALESCE(SUM(total), 0)::float8 FROM orders WHERE status = 'completed') AS "revenue",
+      (SELECT COALESCE(SUM(total), 0)::float8 FROM orders WHERE status = 'completed') AS "netRevenue",
+      (SELECT COALESCE(SUM(subtotal + "deliveryFee"), 0)::float8 FROM orders WHERE status = 'completed') AS "grossRevenue",
+      (SELECT COALESCE(SUM(discount), 0)::float8 FROM orders WHERE status = 'completed') AS "discounts",
+      (SELECT COALESCE(SUM("deliveryFee"), 0)::float8 FROM orders WHERE status = 'completed') AS "deliveryFees"`);
   return rows[0];
 };
 

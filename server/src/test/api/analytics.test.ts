@@ -53,9 +53,9 @@ describe('analytics dashboard periods', () => {
 
     // A is always in today; B is always in this week + this month; C is always in this month.
     const bCreatedAt = new Date(Math.max(weekStart.getTime(), monthStart.getTime()) + 60e3);
-    await seedOrder(customer.id, { orderId: now, name: 'Cheese', qty: 2, unitPrice: 150 });
-    await seedOrder(customer.id, { orderId: bCreatedAt, name: 'Chicken', qty: 1, unitPrice: 150 });
-    await seedOrder(customer.id, { orderId: new Date(monthStart.getTime() + 60e3), name: 'Olive', qty: 3, unitPrice: 20 });
+    await seedOrder(customer.id, { orderId: now, name: 'Cheese', qty: 2, unitPrice: 150, status: 'completed' });
+    await seedOrder(customer.id, { orderId: bCreatedAt, name: 'Chicken', qty: 1, unitPrice: 150, status: 'completed' });
+    await seedOrder(customer.id, { orderId: new Date(monthStart.getTime() + 60e3), name: 'Olive', qty: 3, unitPrice: 20, status: 'completed' });
     await seedOrder(customer.id, { orderId: now, name: 'Secret', qty: 9, unitPrice: 999, status: 'cancelled' });
 
     const res = await api.get(DASHBOARD).set(bearer(admin.id)).expect(200);

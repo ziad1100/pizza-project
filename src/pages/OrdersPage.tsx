@@ -15,6 +15,8 @@ const statusTone: Record<string, 'brand' | 'gold' | 'success' | 'neutral'> = {
   on_delivery: 'brand',
   completed: 'success',
   cancelled: 'neutral',
+  refunded: 'neutral',
+  complimentary: 'gold',
 };
 
 export function OrdersPage() {

@@ -34,3 +34,11 @@ export const createOrderSchema = z.object({
 export const updateStatusSchema = z.object({
   status: z.string().min(1, 'Status is required'),
 });
+
+export const adminCancelOrderSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
+export const markComplimentarySchema = z.object({
+  reason: z.string().trim().min(1, 'Reason is required').max(500),
+});
