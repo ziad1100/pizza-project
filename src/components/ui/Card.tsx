@@ -1,5 +1,7 @@
 import { type ComponentProps, type ReactNode } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
 
 export function Card({ className, ...props }: ComponentProps<'div'>) {
   return (
@@ -72,5 +74,32 @@ export function EmptyState({
       {hint ? <p className="max-w-sm text-sm text-night-400">{hint}</p> : null}
       {action}
     </div>
+  );
+}
+
+export function ErrorState({
+  title,
+  hint,
+  onRetry,
+  retryLabel,
+}: {
+  title: string;
+  hint?: string;
+  onRetry?: () => void;
+  retryLabel?: string;
+}) {
+  return (
+    <EmptyState
+      icon={<AlertTriangle className="h-14 w-14" />}
+      title={title}
+      hint={hint}
+      action={
+        onRetry ? (
+          <Button variant="gold" onClick={onRetry}>
+            {retryLabel}
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }

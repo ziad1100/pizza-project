@@ -146,8 +146,11 @@
     "category": "Hawawshi - الحواوشي",
     "sub": "Hawawshi",
     "file": "sausage-hawawshi-hawawshi.jpg",
-    "source": "placeholder",
-    "photo": "sausage-hawawshi-hawawshi.jpg"
+    "source": "commons",
+    "photo": "sausage-hawawshi-hawawshi.jpg",
+    "credit": "CC0",
+    "attribution": "Andy Li",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b4/Sausage_bap_-_Cadence_Clubhouse%2C_Newhaven_Fort_2025-05-06.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 13,
@@ -156,8 +159,11 @@
     "category": "Hawawshi - الحواوشي",
     "sub": "Hawawshi",
     "file": "meat-hawawshi-hawawshi.jpg",
-    "source": "placeholder",
-    "photo": "meat-hawawshi-hawawshi.jpg"
+    "source": "commons",
+    "photo": "meat-hawawshi-hawawshi.jpg",
+    "credit": "CC BY-SA 4.0",
+    "attribution": "E4024",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Kavurma_ve_peynirli_pide.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 14,
@@ -166,8 +172,11 @@
     "category": "Hawawshi - الحواوشي",
     "sub": "Hawawshi",
     "file": "chicken-hawawshi-hawawshi.jpg",
-    "source": "placeholder",
-    "photo": "chicken-hawawshi-hawawshi.jpg"
+    "source": "commons",
+    "photo": "chicken-hawawshi-hawawshi.jpg",
+    "credit": "CC BY-SA 3.0",
+    "attribution": "Siqbal at English Wikipedia",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/7/71/Shawarma_Sandwich.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 15,
@@ -176,8 +185,11 @@
     "category": "Hawawshi - الحواوشي",
     "sub": "Hawawshi",
     "file": "tuna-hawawshi-hawawshi.jpg",
-    "source": "placeholder",
-    "photo": "tuna-hawawshi-hawawshi.jpg"
+    "source": "commons",
+    "photo": "tuna-hawawshi-hawawshi.jpg",
+    "credit": "CC BY 2.0",
+    "attribution": "jeffreyw",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Tuna_salad_sandwich.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 16,
@@ -186,8 +198,11 @@
     "category": "Hawawshi - الحواوشي",
     "sub": "Hawawshi",
     "file": "cheese-mix-hawawshi-hawawshi.jpg",
-    "source": "placeholder",
-    "photo": "cheese-mix-hawawshi-hawawshi.jpg"
+    "source": "commons",
+    "photo": "cheese-mix-hawawshi-hawawshi.jpg",
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Fatimahope",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/0/09/Cheese_Stuffed_Bread_Roll.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 17,
@@ -196,8 +211,11 @@
     "category": "Hawawshi - الحواوشي",
     "sub": "Hawawshi",
     "file": "meat-mix-hawawshi-hawawshi.jpg",
-    "source": "placeholder",
-    "photo": "meat-mix-hawawshi-hawawshi.jpg"
+    "source": "commons",
+    "photo": "meat-mix-hawawshi-hawawshi.jpg",
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Garrett Ziegler",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cd/Wrapped_Lahmacun.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 18,
@@ -206,8 +224,11 @@
     "category": "Hawawshi - الحواوشي",
     "sub": "Hawawshi",
     "file": "chicken-mix-hawawshi-hawawshi.jpg",
-    "source": "placeholder",
-    "photo": "chicken-mix-hawawshi-hawawshi.jpg"
+    "source": "commons",
+    "photo": "chicken-mix-hawawshi-hawawshi.jpg",
+    "credit": "CC0",
+    "attribution": "Andy Li",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Chicken_Shawarma_Wrap_-_Lavash_2024-09-11.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 19,
@@ -322,8 +343,11 @@
     "category": "Chicken Crepe - كريب الفراخ",
     "sub": "Chicken Crepe",
     "file": "chicken-fajita-crepe-chicken-crepe.jpg",
-    "source": "placeholder",
-    "photo": "chicken-fajita-crepe-chicken-crepe.jpg"
+    "source": "commons",
+    "photo": "chicken-fajita-crepe-chicken-crepe.jpg",
+    "credit": "CC BY 2.0",
+    "attribution": "jeffreyw",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/1/14/Mmm...pita_fajita_%284604200399%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 30,
@@ -342,11 +366,11 @@
     "category": "Meat Crepe - كريب اللحوم",
     "sub": "Meat Crepe",
     "file": "meat-crepe-meat-crepe.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "meat-crepe-meat-crepe.jpg",
-    "credit": "by 2.0",
-    "attribution": "Vegan Feast Catering",
-    "sourceUrl": "https://api.openverse.org/v1/images/8d3c421c-5597-44ea-9f11-1a78cef70ca8/thumb/"
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Paprikapete4467",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/1/12/H%C3%BAsos_Palacsinta_-_Hungarian_Meat_Crepes.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 32,
@@ -355,8 +379,11 @@
     "category": "Meat Crepe - كريب اللحوم",
     "sub": "Meat Crepe",
     "file": "meat-burger-crepe-meat-crepe.jpg",
-    "source": "placeholder",
-    "photo": "meat-burger-crepe-meat-crepe.jpg"
+    "source": "commons",
+    "photo": "meat-burger-crepe-meat-crepe.jpg",
+    "credit": "CC BY-SA 2.0",
+    "attribution": "cyclonebill from Copenhagen, Denmark",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/9/98/Wrapped_Burger_King_cheeseburger.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 33,
@@ -365,11 +392,11 @@
     "category": "Meat Crepe - كريب اللحوم",
     "sub": "Meat Crepe",
     "file": "hot-dog-crepe-meat-crepe.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "hot-dog-crepe-meat-crepe.jpg",
-    "credit": "by-sa 2.0",
-    "attribution": "Sapphireblue",
-    "sourceUrl": "https://api.openverse.org/v1/images/7925b347-c8e7-4143-9a4b-b10efbc21506/thumb/"
+    "credit": "CC BY-SA 3.0",
+    "attribution": "Dreams20",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c2/Hot_Dog_Roll_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 34,
@@ -378,8 +405,11 @@
     "category": "Meat Crepe - كريب اللحوم",
     "sub": "Meat Crepe",
     "file": "mexican-hot-dog-crepe-meat-crepe.jpg",
-    "source": "placeholder",
-    "photo": "mexican-hot-dog-crepe-meat-crepe.jpg"
+    "source": "commons",
+    "photo": "mexican-hot-dog-crepe-meat-crepe.jpg",
+    "credit": "CC BY-SA 2.0",
+    "attribution": "stu_spivack",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/2/29/Sonoran_hot_dog.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 35,
@@ -388,8 +418,11 @@
     "category": "Meat Crepe - كريب اللحوم",
     "sub": "Meat Crepe",
     "file": "baladi-sausage-crepe-meat-crepe.jpg",
-    "source": "placeholder",
-    "photo": "baladi-sausage-crepe-meat-crepe.jpg"
+    "source": "commons",
+    "photo": "baladi-sausage-crepe-meat-crepe.jpg",
+    "credit": "CC0",
+    "attribution": "Andy Li",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Marmite_%26_pork_sausage_roll_-_The_Roastery_2024-04-05.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 36,
@@ -398,8 +431,11 @@
     "category": "Meat Crepe - كريب اللحوم",
     "sub": "Meat Crepe",
     "file": "alexandrian-sausage-crepe-meat-crepe.jpg",
-    "source": "placeholder",
-    "photo": "alexandrian-sausage-crepe-meat-crepe.jpg"
+    "source": "commons",
+    "photo": "alexandrian-sausage-crepe-meat-crepe.jpg",
+    "credit": "CC BY 2.0",
+    "attribution": "Josef Türk Reit im Winkl Chiemgau",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/7/78/Berner-W%C3%BCrstel-01.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 37,
@@ -408,8 +444,11 @@
     "category": "Meat Crepe - كريب اللحوم",
     "sub": "Meat Crepe",
     "file": "kofta-crepe-meat-crepe.jpg",
-    "source": "placeholder",
-    "photo": "kofta-crepe-meat-crepe.jpg"
+    "source": "commons",
+    "photo": "kofta-crepe-meat-crepe.jpg",
+    "credit": "CC0",
+    "attribution": "Andy Li",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b7/D%C3%B6ner_Kebab_Wrap_-_What_The_Pitta.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 38,
@@ -586,8 +625,8 @@
     "source": "commons",
     "photo": "super-can-delivery-cans.jpg",
     "credit": "CC BY-SA 3.0",
-    "attribution": "Udhayinfo1",
-    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/5/57/Aluminium_Foil_Container.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
+    "attribution": "Biswarup Ganguly",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/1/1b/Biryani_-_Kolkata_2012-03-07_9242.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 54,
@@ -609,11 +648,11 @@
     "category": "Tagine - الطواجن",
     "sub": "Tagine",
     "file": "meat-tagine-tagine.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "meat-tagine-tagine.jpg",
-    "credit": "by-sa 2.0",
-    "attribution": "avlxyz",
-    "sourceUrl": "https://api.openverse.org/v1/images/c58fc13e-3aaa-4f25-b45c-036949f1d5f7/thumb/"
+    "credit": "CC BY 2.0",
+    "attribution": "YoTuT from United States",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bb/Tagine_for_lunch_in_Zagora%2C_Morocco_%285422895511%29_%286%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 56,
@@ -635,11 +674,11 @@
     "category": "Tagine - الطواجن",
     "sub": "Tagine",
     "file": "meat-mix-tagine-tagine.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "meat-mix-tagine-tagine.jpg",
-    "credit": "by 2.0",
-    "attribution": "Blue moon in her eyes",
-    "sourceUrl": "https://api.openverse.org/v1/images/fa5bd9fd-1fbf-4657-99f1-7efe8871ebcf/thumb/"
+    "credit": "CC BY-SA 4.0",
+    "attribution": "SAADY Yousef",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/a/ab/Eid_al-Adha_Tagine.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 58,
@@ -661,8 +700,11 @@
     "category": "Tagine - الطواجن",
     "sub": "Tagine",
     "file": "meat-mozzarella-tagine-tagine.jpg",
-    "source": "placeholder",
-    "photo": "meat-mozzarella-tagine-tagine.jpg"
+    "source": "commons",
+    "photo": "meat-mozzarella-tagine-tagine.jpg",
+    "credit": "CC BY-SA 3.0",
+    "attribution": "Maderibeyza",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/Karn%C4%B1yar%C4%B1k.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 60,
@@ -717,11 +759,11 @@
     "category": "Dessert - الحلو",
     "sub": "Dessert",
     "file": "water-dessert.jpg",
-    "source": "downloaded",
+    "source": "commons",
     "photo": "water-dessert.jpg",
-    "credit": "by 2.0",
-    "attribution": "geirt.com",
-    "sourceUrl": "https://api.openverse.org/v1/images/72868ea8-d8f0-4af6-a4ee-4ac826ae16c3/thumb/"
+    "credit": "CC BY-SA 4.0",
+    "attribution": "Kykywinks",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Plastic_Water_Bottle.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original"
   },
   {
     "id": 65,

@@ -6,7 +6,7 @@ import { Search } from 'lucide-react';
 import { listCategories, listProducts } from '@/api/products';
 import { ProductCard } from '@/components/product/ProductCard';
 import { Button } from '@/components/ui/Button';
-import { EmptyState, Skeleton } from '@/components/ui/Card';
+import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
 
@@ -136,6 +136,13 @@ export function MenuPage() {
               <Skeleton key={i} className="aspect-[4/5]" />
             ))}
           </div>
+        ) : products.isError ? (
+          <ErrorState
+            title={t('misc.error')}
+            hint={t('misc.loadError')}
+            onRetry={() => products.refetch()}
+            retryLabel={t('misc.retry')}
+          />
         ) : items.length === 0 ? (
           <EmptyState title={t('menu.noResults')} icon={<Search className="h-14 w-14" />} />
         ) : (

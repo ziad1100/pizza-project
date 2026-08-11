@@ -2,18 +2,22 @@
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Clock, Flame, Leaf, Phone, Star, Tag, Truck, UtensilsCrossed } from 'lucide-react';
-import { getBestSellers } from '@/api/products';
+import { getBestSellers, listProducts } from '@/api/products';
 import { getActiveOffers } from '@/api/offers';
 import { ProductCard } from '@/components/product/ProductCard';
 import { OfferCard } from '@/components/offer/OfferCard';
 import { Button } from '@/components/ui/Button';
-import { EmptyState, Skeleton } from '@/components/ui/Card';
+import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
 
 export function HomePage() {
   const { t } = useTranslation();
 
   const bestSellers = useQuery({ queryKey: ['products', 'best-sellers'], queryFn: getBestSellers });
   const offers = useQuery({ queryKey: ['offers', 'active'], queryFn: getActiveOffers });
+  const productsCount = useQuery({
+    queryKey: ['products', 'count'],
+    queryFn: () => listProducts({ limit: 1 }).then((p) => p.total),
+  });
 
   const features = [
     { icon: UtensilsCrossed, title: t('home.whyDough'), desc: t('home.whyDoughDesc') },
@@ -56,7 +60,13 @@ export function HomePage() {
             </div>
             <div className="mt-12 grid max-w-md grid-cols-3 gap-4">
               <div className="text-center">
-                <p className="text-3xl font-extrabold text-gold-500">41</p>
+                <p className="text-3xl font-extrabold text-gold-500">
+                  {productsCount.isLoading ? (
+                    <Skeleton className="mx-auto inline-block h-9 w-12 align-middle" />
+                  ) : (
+                    productsCount.data ?? 0
+                  )}
+                </p>
                 <p className="mt-1 text-sm text-night-400">{t('hero.statItems')}</p>
               </div>
               <div className="text-center">
@@ -122,6 +132,13 @@ export function HomePage() {
               <Skeleton key={i} className="h-72" />
             ))}
           </div>
+        ) : offers.isError ? (
+          <ErrorState
+            title={t('misc.error')}
+            hint={t('misc.loadError')}
+            onRetry={() => offers.refetch()}
+            retryLabel={t('misc.retry')}
+          />
         ) : !offers.data || offers.data.length === 0 ? (
           <EmptyState
             icon={<Tag className="h-10 w-10" />}
@@ -147,11 +164,24 @@ export function HomePage() {
           <div className="mb-8 text-center">
             <h2 className="text-3xl font-extrabold text-night-50">{t('home.bestSellers')}</h2>
           </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-            {bestSellers.isLoading
-              ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="aspect-[4/5]" />)
-              : bestSellers.data?.map((product) => <ProductCard key={product._id} product={product} />)}
-          </div>
+          {bestSellers.isLoading ? (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="aspect-[4/5]" />)}
+            </div>
+          ) : bestSellers.isError ? (
+            <ErrorState
+              title={t('misc.error')}
+              hint={t('misc.loadError')}
+              onRetry={() => bestSellers.refetch()}
+              retryLabel={t('misc.retry')}
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+              {bestSellers.data?.map((product) => (
+                <ProductCard key={product._id} product={product} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

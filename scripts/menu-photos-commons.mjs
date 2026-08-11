@@ -34,8 +34,9 @@ const CURATED = {
   'baked-rice-dessert.jpg': { q: 'rice pudding', fb: 'milk rice dessert' },
   'regular-rice-dessert.jpg': { q: 'white rice bowl', fb: 'cooked rice plate' },
   'regular-can-delivery-cans.jpg': { q: 'takeaway food box', fb: 'kraft food container' },
-  'super-can-delivery-cans.jpg': { q: 'aluminium foil food container', fb: 'foil tray takeaway' },
+  'super-can-delivery-cans.jpg': { q: 'biryani foil', fb: 'biryani tray' },
   'jumbo-can-delivery-cans.jpg': { q: 'foil tray food', fb: 'large takeaway container' },
+  'water-dessert.jpg': { q: 'plastic water bottle', fb: 'transparent water bottle' },
   'lotus-sweet-feteer.jpg': { q: 'lotus biscoff crepe', fb: 'biscoff dessert crepe' },
   'chocolate-banana-sweet-feteer.jpg': { q: 'chocolate banana crepe', fb: 'banana nutella crepe' },
   'chocolate-oreo-sweet-feteer.jpg': { q: 'oreo crepe', fb: 'chocolate cookie crepe' },
@@ -48,9 +49,28 @@ const CURATED = {
   'baked-mozzarella-potato-appetizers.jpg': { q: 'baked potato cheese', fb: 'cheesy baked potato' },
   'meat-pasta-pasta.jpg': { q: 'bolognese pasta', fb: 'spaghetti bolognese' },
   'alfredo-pasta-pasta.jpg': { q: 'fettuccine alfredo', fb: 'creamy white sauce pasta' },
-  'kiri-cheese-cheese.jpg': { q: 'kiri cheese', fb: 'cream cheese portions' },
+'kiri-cheese-cheese.jpg': { q: 'kiri cheese', fb: 'cream cheese portions' },
   'bbq-chicken-crepe-chicken-crepe.jpg': { q: 'chicken crepe', fb: 'chicken wrap' },
-  'chicken-mix-tagine-tagine.jpg': { q: 'chicken tagine', fb: 'chicken casserole' },
+  'sausage-hawawshi-hawawshi.jpg': { q: 'sausage sandwich', fb: 'sujuk sausage' },
+  'meat-hawawshi-hawawshi.jpg': { q: 'pide meat', fb: 'kibbeh' },
+  'chicken-hawawshi-hawawshi.jpg': { q: 'chicken shawarma sandwich', fb: 'gyro wrap' },
+  'tuna-hawawshi-hawawshi.jpg': { q: 'tuna sandwich toasted', fb: 'tuna pie' },
+  'cheese-mix-hawawshi-hawawshi.jpg': { q: 'cheese stuffed bread', fb: 'cheese pie pastry' },
+  'meat-mix-hawawshi-hawawshi.jpg': { q: 'lahmacun', fb: 'stuffed flatbread' },
+  'chicken-mix-hawawshi-hawawshi.jpg': { q: 'chicken wrap', fb: 'shawarma wrap' },
+  'beef-meat.jpg': { q: 'raw beef steak', fb: 'beef cut meat' },
+  'meat-tagine-tagine.jpg': { q: 'beef tagine', fb: 'moroccan meat tagine' },
+  'meat-mix-tagine-tagine.jpg': { q: 'meat tagine', fb: 'grilled meat tagine' },
+  'meat-mozzarella-tagine-tagine.jpg': { q: 'karniyarik', fb: 'pastitsio' },
+  'meat-crepe-meat-crepe.jpg': { q: 'meat crepe', fb: 'savory crepe meat' },
+  'meat-burger-crepe-meat-crepe.jpg': { q: 'burger wrap', fb: 'beef burger' },
+  'hot-dog-crepe-meat-crepe.jpg': { q: 'hot dog roll', fb: 'hot dog bread' },
+  'mexican-hot-dog-crepe-meat-crepe.jpg': { q: 'mexican hot dog', fb: 'hot dog jalapeno' },
+  'baladi-sausage-crepe-meat-crepe.jpg': { q: 'sausage roll', fb: 'grilled sausage wrap' },
+  'alexandrian-sausage-crepe-meat-crepe.jpg': { q: 'sausage wrap', fb: 'sausage pastry' },
+  'kofta-crepe-meat-crepe.jpg': { q: 'kebab wrap', fb: 'adana kebab' },
+  'chicken-fajita-crepe-chicken-crepe.jpg': { q: 'chicken fajita wrap', fb: 'fajita burrito' },
+  'chocolate-oreo-sweet-feteer.jpg': { q: 'oreo crepe', fb: 'chocolate cookie crepe' },
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -138,9 +158,9 @@ async function fetchMode(args) {
     const item = { file, candidates: [] };
     const infos = await infoBatch(titles.slice(0, 6));
     for (const ii of infos) {
+      const title = ii.title ?? '?';
       try {
-        if (!ii.thumburl || !ii.mime?.startsWith('image/')) continue;
-        const title = ii.title;
+        if (!ii.thumburl || !['image/jpeg', 'image/png', 'image/webp'].includes(ii.mime)) continue;
         const idx = item.candidates.length;
         const dest = path.join(dir, `${idx}--${title.replace(/^File:/, '').replace(/[\\/:*?"<>|]/g, '_').slice(0, 90)}.jpg`);
         const buf = await download(ii.thumburl);
@@ -161,6 +181,8 @@ async function fetchMode(args) {
     const prior = manifest.findIndex((m) => m.file === file);
     if (prior !== -1) manifest.splice(prior, 1);
     manifest.push(item);
+    fs.writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2));
+    buildContactSheet(manifest);
   }
   fs.writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2));
   buildContactSheet(manifest);
