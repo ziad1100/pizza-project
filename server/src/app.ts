@@ -72,7 +72,9 @@ const clientDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 const clientIndex = path.join(clientDist, 'index.html');
 if (process.env.NODE_ENV === 'production' && fs.existsSync(clientIndex)) {
   app.use(express.static(clientDist, { maxAge: '7d', immutable: true, setHeaders: (res, filePath) => {
-    if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+    const normalized = filePath.replace(/\\/g, '/');
+    if (normalized.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+    else if (normalized.includes('/images/')) res.setHeader('Cache-Control', 'public, max-age=3600');
   } }));
   app.get(/^\/(?!api\/|uploads\/).*/, (_req, res) => {
     res.sendFile(clientIndex);
