@@ -208,12 +208,16 @@ export const getDashboardDay = (date: string): Promise<DayStats> =>
 export const refreshDashboard = (): Promise<{ ok: boolean }> =>
   unwrap(api.post<ApiEnvelope<{ ok: boolean }>>('/analytics/refresh'));
 
-export const exportDashboard = async (date?: string, period = 'today'): Promise<Blob> => {
+export const exportDashboard = async (date?: string, period = 'today'): Promise<{ blob: Blob; filename: string }> => {
   const res = await api.get<Blob>('/analytics/export', {
     params: { date: date || undefined, period },
     responseType: 'blob',
   });
-  return res.data;
+  // Prefer the server-provided filename (respects the selected period/date range).
+  const disposition = String(res.headers?.['content-disposition'] ?? '');
+  const match = disposition.match(/filename="?([^";]+)"?/);
+  const fallback = `dashboard-report-${date ?? new Date().toISOString().slice(0, 10)}.xlsx`;
+  return { blob: res.data, filename: match?.[1] ?? fallback };
 };
 
 export interface ReviewListParams extends ListParams {

@@ -48,11 +48,11 @@ export function AdminIndexPage() {
 
   const exportMutation = useMutation({
     mutationFn: () => exportDashboard(day, period),
-    onSuccess: (blob) => {
+    onSuccess: ({ blob, filename }) => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `dashboard-report-${day}.xlsx`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();

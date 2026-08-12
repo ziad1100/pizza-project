@@ -17,6 +17,7 @@ export const periodWindows = (now = new Date()): { todayStart: Date; weekStart: 
 };
 
 const daysAgo = (days: number) => new Date(Date.now() - days * 86400000);
+const iso = (d: Date): string => d.toISOString().slice(0, 10);
 
 export const dashboard = asyncHandler(async (_req: Request, res: Response) => {
   const { todayStart, weekStart, monthStart } = periodWindows();
@@ -115,8 +116,12 @@ export const exportStats = asyncHandler(async (req: Request, res: Response) => {
   if (!['today', 'week', 'month'].includes(period)) throw new ApiError(400, 'Invalid period');
 
   const today = new Date();
-  const todayIso = today.toISOString().slice(0, 10);
+  const todayIso = iso(today);
   const selectedDate = date && date <= todayIso ? date : todayIso;
+
+  // Use the same calendar windows as the dashboard (periodWindows) so the
+  // exported Today / This Week / This Month figures match the on-screen cards.
+  const { todayStart, weekStart, monthStart } = periodWindows();
 
   const [totals, recent, byStatus, top, todayStats, weekStats, monthStats, trend, dayStats, categoryData, reviewData, customersWithOrders] =
     await Promise.all([
@@ -124,9 +129,9 @@ export const exportStats = asyncHandler(async (req: Request, res: Response) => {
       analyticsRepo.recent(daysAgo(30)),
       analyticsRepo.statusBreakdown(),
       analyticsRepo.topProducts(),
-      analyticsRepo.periodStats(daysAgo(1)),
-      analyticsRepo.periodStats(daysAgo(7)),
-      analyticsRepo.periodStats(daysAgo(30)),
+      analyticsRepo.periodStats(todayStart),
+      analyticsRepo.periodStats(weekStart),
+      analyticsRepo.periodStats(monthStart),
       analyticsRepo.trend(daysAgo(30)),
       analyticsRepo.dayStats(selectedDate),
       analyticsRepo.categorySales(),
@@ -282,7 +287,12 @@ export const exportStats = asyncHandler(async (req: Request, res: Response) => {
   customerWs['!cols'] = [{ wch: 30 }, { wch: 16 }];
   XLSX.utils.book_append_sheet(wb, customerWs, 'Customers & Reviews');
 
-  const filename = `dashboard-report-${period}-${selectedDate}.xlsx`;
+  // Meaningful dynamic filename: plain date for Today, date range otherwise.
+  // e.g. dashboard-report-2026-08-12.xlsx / dashboard-report-2026-08-01-to-2026-08-12.xlsx
+  const filename =
+    period === 'today'
+      ? `dashboard-report-${selectedDate}.xlsx`
+      : `dashboard-report-${iso(period === 'week' ? weekStart : monthStart)}-to-${selectedDate}.xlsx`;
   const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
