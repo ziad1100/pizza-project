@@ -10,7 +10,11 @@ export const registerSchema = z
   .object({
     fullName: z.string().trim().min(1, 'Full name is required').max(80),
     email: z.string().trim().toLowerCase().email('Valid email is required'),
-    phone: z.string().trim().max(20).optional(),
+    phone: z
+      .string()
+      .trim()
+      .regex(/^01[0125]\d{8}$/, 'Phone must be a valid 11-digit Egyptian mobile number (010/011/012/015)')
+      .optional(),
     password,
     role: z.enum(['admin', 'customer']).default('customer'),
     adminCode: z.string().optional(),

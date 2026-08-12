@@ -36,7 +36,9 @@ export default function (product) {
     return;
   }
   const email = `k6-${__VU}-${__ITER}-${Date.now()}@load.local`;
-  const phone = `01${String(Date.now()).slice(-9)}`;
+  // 11 digits starting with a valid Egyptian prefix (010/011/012/015).
+  const prefix = ['0', '1', '2', '5'][Math.floor(Math.random() * 4)];
+  const phone = `01${prefix}${String(Date.now()).slice(-8)}`;
   const qty = product.basePrice >= 100 ? 2 : Math.ceil(100 / (product.basePrice || 100));
 
   const reg = http.post(

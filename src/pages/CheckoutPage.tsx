@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, EmptyState } from '@/components/ui/Card';
 import { FieldError, Input, Label, Textarea } from '@/components/ui/Input';
+import { EGYPTIAN_MOBILE_REGEX } from '@/lib/validation';
 import { cn, formatPrice } from '@/lib/utils';
 
 export function CheckoutPage() {
@@ -39,7 +40,7 @@ export function CheckoutPage() {
   const [couponError, setCouponError] = useState('');
 
   const schema = z.object({
-    phone: z.string().min(8),
+    phone: z.string().trim().regex(EGYPTIAN_MOBILE_REGEX, t('common.phoneInvalid')),
     customerName: z.string().min(2),
     city: z.string().min(2),
     street: z.string().min(2),
@@ -49,6 +50,7 @@ export function CheckoutPage() {
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: 'onBlur',
     defaultValues: { customerName: '', phone: '', city: '', street: '', building: '' },
   });
 
@@ -127,7 +129,7 @@ export function CheckoutPage() {
                   </div>
                   <div>
                     <Label>{t('checkout.phone')}</Label>
-                    <Input dir="ltr" {...register('phone')} error={Boolean(errors.phone)} />
+                    <Input dir="ltr" inputMode="numeric" maxLength={11} {...register('phone')} error={Boolean(errors.phone)} />
                     <FieldError message={errors.phone?.message} />
                   </div>
                 </div>

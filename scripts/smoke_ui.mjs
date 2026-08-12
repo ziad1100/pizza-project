@@ -97,7 +97,7 @@ try {
     const reg = await fetch(`${API}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName: 'Smoke Reset', email: smokeEmail, phone: '', password: 'Pizza123!', role: 'customer' }),
+      body: JSON.stringify({ fullName: 'Smoke Reset', email: smokeEmail, password: 'Pizza123!', role: 'customer' }),
     });
     check('smoke account registered', reg.ok, `status ${reg.status}`);
   } catch (e) {

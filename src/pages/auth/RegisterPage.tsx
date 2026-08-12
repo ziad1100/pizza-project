@@ -13,6 +13,7 @@ import { setCredentials } from '@/store/slices/authSlice';
 import { useAppDispatch } from '@/hooks';
 import { getErrorMessage } from '@/lib/api';
 import { postAuthTarget } from '@/lib/authRedirect';
+import { EGYPTIAN_MOBILE_REGEX } from '@/lib/validation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { FieldError, Input, Label, PasswordInput } from '@/components/ui/Input';
@@ -25,7 +26,7 @@ export function RegisterPage() {
   const schema = z
     .object({
       fullName: z.string().min(2),
-      phone: z.string().min(8).max(15),
+      phone: z.string().trim().regex(EGYPTIAN_MOBILE_REGEX, t('common.phoneInvalid')),
       email: z.string().email(),
       password: z.string().min(6),
       confirmPassword: z.string(),
@@ -50,6 +51,7 @@ export function RegisterPage() {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: 'onBlur',
     defaultValues: { role: 'customer', adminCode: '' },
   });
 
@@ -93,7 +95,7 @@ export function RegisterPage() {
           </div>
           <div>
             <Label htmlFor="phone">{t('auth.phone')}</Label>
-            <Input id="phone" dir="ltr" {...register('phone')} error={Boolean(errors.phone)} />
+            <Input id="phone" dir="ltr" inputMode="numeric" maxLength={11} {...register('phone')} error={Boolean(errors.phone)} />
             <FieldError message={errors.phone?.message} />
           </div>
           <div>

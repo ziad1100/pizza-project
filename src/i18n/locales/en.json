@@ -20,6 +20,7 @@
     "freeDelivery": "Free delivery",
     "contactUs": "Contact us",
     "viewAll": "View all",
+    "phoneInvalid": "Phone must be a valid 11-digit Egyptian mobile number starting with 010, 011, 012 or 015.",
     "start": "Start your order"
   },
   "nav": {

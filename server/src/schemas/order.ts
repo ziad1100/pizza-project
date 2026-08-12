@@ -18,7 +18,10 @@ const item = z.object({
 export const createOrderSchema = z.object({
   items: z.array(item).min(1, 'At least one item is required').max(100),
   couponCode: z.string().trim().max(40).optional(),
-  phone: z.string().trim().min(6, 'Phone is required').max(30),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^01[0125]\d{8}$/, 'Phone must be a valid 11-digit Egyptian mobile number (010/011/012/015)'),
   customerName: z.string().trim().max(80).optional(),
   notes: z.string().trim().max(1000).optional(),
   address: z.object({

@@ -130,6 +130,64 @@ describe('zod validation', () => {
     });
   });
 
+  describe('egyptian mobile phone', () => {
+    it('accepts the four valid prefixes on checkout', async () => {
+      const { product } = await setupCatalog();
+      const user = await createUser();
+      for (const phone of ['01012345678', '01112345678', '01212345678', '01512345678']) {
+        const res = await api
+          .post(ORDERS)
+          .set(bearer(user.id))
+          .send({
+            items: [{ product: toId(product._id), qty: 1 }],
+            address: { city: 'Cairo', area: 'Maadi', street: 'Main', building: '5' },
+            phone,
+          });
+        expect(res.status).toBe(201);
+      }
+    });
+
+    it('rejects wrong length, prefix, letters, spaces and separators on checkout', async () => {
+      const { product } = await setupCatalog();
+      const user = await createUser();
+      const invalid = [
+        '0101234567',
+        '010123456789',
+        '01312345678',
+        '01412345678',
+        '01612345678',
+        '12345678901',
+        '01012345abc',
+        '010-1234-5678',
+        '010 1234 5678',
+      ];
+      for (const phone of invalid) {
+        const res = await api
+          .post(ORDERS)
+          .set(bearer(user.id))
+          .send({
+            items: [{ product: toId(product._id), qty: 1 }],
+            address: { city: 'Cairo', area: 'Maadi', street: 'Main', building: '5' },
+            phone,
+          });
+        expect(res.status).toBe(422);
+      }
+    });
+
+    it('validates the phone on registration', async () => {
+      const bad = await api
+        .post(`${AUTH}/register`)
+        .send({ fullName: 'User', email: 'phone-bad@example.com', phone: '01612345678', password: 'Pizza123!' });
+      expect(bad.status).toBe(422);
+
+      const ok = await api
+        .post(`${AUTH}/register`)
+        .send({ fullName: 'User', email: 'phone-ok@example.com', phone: '01512345678', password: 'Pizza123!' });
+      expect(ok.status).toBe(201);
+      expect(ok.body.data.user.phone).toBe('01512345678');
+    });
+  });
+
   describe('cart', () => {
     it('rejects a zero quantity on addItem with 422', async () => {
       const { product } = await setupCatalog();
