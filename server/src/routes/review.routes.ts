@@ -43,6 +43,7 @@ router.get('/admin/stats', requireAuth, requireRole(...STAFF), requirePermission
 router.delete('/admin/:id', requireAuth, requireRole(...STAFF), requirePermission('reviews', 'delete'), invalidateCache('products', 'reviews'), review.adminRemove);
 
 router.get('/order/:orderId', requireAuth, review.orderState);
+router.get('/pending-orders', requireAuth, review.pendingOrders);
 router.get('/eligible/:productId', requireAuth, review.eligible);
 router.get('/my', requireAuth, review.myReviews);
 router.get('/:id', requireAuth, review.getOne);

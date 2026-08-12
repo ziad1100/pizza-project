@@ -520,3 +520,36 @@ describe('reviews: admin moderation and stats', () => {
     expect(data.lowestRated[0].reviews).toBe(1);
   });
 });
+
+describe('reviews: pending orders (smart review prompt)', () => {
+  it('requires authentication', async () => {
+    expect((await api.get(`${REVIEWS}/pending-orders`)).status).toBe(401);
+  });
+
+  it('lists only completed orders that still have something to review', async () => {
+    const { product } = await setupCatalog();
+    const customer = await createUser();
+    const completed = await createCompletedOrder(customer.id, toId(product._id));
+    await createOrder(customer.id, toId(product._id)); // still pending — must not appear
+
+    const res = await api.get(`${REVIEWS}/pending-orders`).set(bearer(customer.id));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0]).toMatchObject({
+      orderId: completed,
+      unreviewedItems: 1,
+      hasExperienceReview: false,
+    });
+
+    // reviewing the meal clears unreviewedItems but the order stays until the experience is rated
+    await api.post(REVIEWS).set(bearer(customer.id)).send(mealReviewBody(product._id, completed));
+    const afterMeal = await api.get(`${REVIEWS}/pending-orders`).set(bearer(customer.id));
+    expect(afterMeal.body.data).toHaveLength(1);
+    expect(afterMeal.body.data[0]).toMatchObject({ orderId: completed, unreviewedItems: 0, hasExperienceReview: false });
+
+    // once the experience review exists, nothing is pending anymore
+    await api.post(`${REVIEWS}/restaurant`).set(bearer(customer.id)).send({ orderId: completed, rating: 4 });
+    const afterAll = await api.get(`${REVIEWS}/pending-orders`).set(bearer(customer.id));
+    expect(afterAll.body.data).toEqual([]);
+  });
+});

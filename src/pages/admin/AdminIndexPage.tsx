@@ -2,9 +2,9 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CalendarDays, Download, Package, RefreshCw, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import { Banknote, CalendarDays, Download, Package, RefreshCw, ShoppingBag, Star, TrendingUp, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { adminListOrders, exportDashboard, getDashboard, getDashboardDay, refreshDashboard } from '@/api/admin';
+import { adminListOrders, adminReviewStats, exportDashboard, getDashboard, getDashboardDay, refreshDashboard } from '@/api/admin';
 import { getErrorMessage } from '@/lib/api';
 import { Card, CardContent, EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -31,6 +31,8 @@ export function AdminIndexPage() {
     queryFn: () => adminListOrders({ page: 1, limit: 8 }),
   });
 
+  const reviewStats = useQuery({ queryKey: ['admin', 'reviews', 'stats'], queryFn: adminReviewStats });
+
   const [period, setPeriod] = useState<PeriodKey>('today');
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
 
@@ -40,6 +42,7 @@ export function AdminIndexPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] }),
         queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'reviews'] }),
       ]);
       toast.success(t('admin.refreshSuccess'));
     },
@@ -76,6 +79,21 @@ export function AdminIndexPage() {
     { key: t('admin.overview.recentRevenue'), value: dashboard.data ? formatPrice(dashboard.data.recentRevenue, lang) : '—', icon: TrendingUp },
     { key: t('admin.overview.products'), value: dashboard.data?.products ?? '—', icon: Package },
   ];
+
+  const reviewTiles = reviewStats.data
+    ? [
+        { label: t('admin.totalReviews'), value: String(reviewStats.data.total) },
+        { label: t('admin.avgRating'), value: reviewStats.data.average.toFixed(1) },
+        { label: t('admin.reviewsToday'), value: String(reviewStats.data.today) },
+        { label: t('admin.pendingReviews'), value: String(reviewStats.data.pending) },
+        { label: t('admin.fiveStarReviews'), value: String(reviewStats.data.fiveStar), tone: 'text-gold-400' },
+        { label: t('admin.oneStarReviews'), value: String(reviewStats.data.oneStar), tone: 'text-red-400' },
+        {
+          label: t('admin.restaurantRatingLabel'),
+          value: `${reviewStats.data.restaurantAverage.toFixed(1)} (${reviewStats.data.restaurantTotal})`,
+        },
+      ]
+    : [];
 
   const financial = dashboard.data
     ? [
@@ -241,6 +259,34 @@ export function AdminIndexPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardContent className="p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-night-200">
+              <Star className="h-4 w-4 text-gold-400" />
+              {t('admin.reviewsOverview')}
+            </h3>
+            <Link to="/admin/reviews" className="text-sm font-bold text-brand-500 hover:text-brand-400">
+              {t('admin.nav.reviews')}
+            </Link>
+          </div>
+          {reviewStats.isLoading ? (
+            <Skeleton className="h-28" />
+          ) : reviewStats.data ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+              {reviewTiles.map(({ label, value, tone }) => (
+                <div key={label} className="rounded-xl border border-night-800 bg-night-950/60 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-night-500">{label}</p>
+                  <p className={cn('mt-1 text-2xl font-extrabold text-night-50', tone)} dir="ltr">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <div className="mt-6">
         <div className="flex flex-wrap items-center justify-between gap-3">

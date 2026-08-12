@@ -408,6 +408,8 @@
     "fiveStarReviews": "تقييمات ٥ نجوم",
     "oneStarReviews": "تقييمات نجمة واحدة",
     "restaurantRatingLabel": "تقييم التجربة",
+    "pendingReviews": "تقييمات قيد المراجعة",
+    "reviewsOverview": "نظرة عامة على التقييمات",
     "mostReviewed": "الأطباق الأكثر تقييمًا",
     "highestRated": "الأعلى تقييمًا",
     "lowestRated": "الأقل تقييمًا",
@@ -504,6 +506,10 @@
     "order": "الطلب",
     "anonymous": "عميل",
     "restaurantRating": "تقييم المطعم",
-    "reviews": "{{count}} تقييم"
+    "reviews": "{{count}} تقييم",
+    "promptTitle": "إيه رأيك في طلبك؟ 🍕",
+    "promptSubtitle": "طلبك اتوصّل — قيّم أطباقك وتجربتك عشان نقدر نطوّر دايماً.",
+    "promptCta": "قيّم الآن",
+    "promptDismiss": "بعدين"
   }
 }

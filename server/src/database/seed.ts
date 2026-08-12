@@ -313,8 +313,9 @@ const seedSettings = async (): Promise<void> => {
 };
 
 const seedReviews = async (userIds: Record<string, string>): Promise<void> => {
+  // Cover the whole menu: best sellers first, then the rest — ~40 rated meals.
   const products = await query<{ id: string }>(
-    'SELECT id FROM products ORDER BY "createdAt" LIMIT 12',
+    'SELECT id FROM products ORDER BY "isBestSeller" DESC, "createdAt" LIMIT 40',
   );
   const comments = [
     'أحلى وجبات في المنطقة، الطعم رائع!',
@@ -323,9 +324,16 @@ const seedReviews = async (userIds: Record<string, string>): Promise<void> => {
     'توصيل سريع والطلب لسه سخن',
     'جودة ممتازة وأسعار مناسبة',
     'الأحجام كبيرة والطعم أصلي 100%',
+    'مكونات طازجة حقيقي وطعم زي الأول',
+    'أول مرة أجرب والنتيجة فاقت التوقع',
+    'الوجبة وافرة والتغليف نظيف',
+    'أحلى بيتزا سجق جربتها من زمان',
+    'طعم البيتزا الإيطالي أصلي بجد',
+    'الجبنة مطوّرة وبتنزل بالسلك',
   ];
   for (const [i, product] of products.entries()) {
-    const rating = 4 + (i % 2);
+    // Top 10 (best sellers) get 5★; the rest 4/5 so the distribution looks real.
+    const rating = i < 10 ? 5 : 4 + (i % 2);
     await query(
       `INSERT INTO reviews ("userId", "productId", "reviewType", rating, comment, status, "isVerifiedPurchase")
        VALUES ($1::uuid, $2::uuid, 'meal', $3, $4, 'published', false)`,
@@ -344,6 +352,7 @@ const seedReviews = async (userIds: Record<string, string>): Promise<void> => {
   const experience = [
     { rating: 5, foodQuality: 5, delivery: 5, packaging: 4, service: 5, overall: 5, comment: 'تجربة رائعة من أول الطلب للتوصيل، الأكل كان سخن والطعم ممتاز.' },
     { rating: 4, foodQuality: 4, delivery: 5, packaging: 4, service: 4, overall: 4, comment: 'التوصيل سريع والتغليف محكم، الأطباق كانت طازجة ولذيذة.' },
+    { rating: 5, foodQuality: 5, delivery: 4, packaging: 5, service: 5, overall: 5, comment: 'من أفضل المطاعم اللي جربتها، الطلب دايماً بالظبط.' },
   ];
   for (const r of experience) {
     await query(
@@ -354,6 +363,61 @@ const seedReviews = async (userIds: Record<string, string>): Promise<void> => {
     );
   }
   console.log('[seed] reviews created');
+};
+
+// A delivered demo order for the customer account so the order-history review
+// panel and the smart review prompt are immediately demonstrable on fresh
+// installs (2 days old, so the review delay has already passed).
+const seedDemoOrder = async (userIds: Record<string, string>): Promise<void> => {
+  const products = await query<{ id: string; name: string; "nameEn": string; "basePrice": string }>(
+    'SELECT id, name, "nameEn", "basePrice" FROM products WHERE "isBestSeller" = true ORDER BY "sortOrder" LIMIT 3',
+  );
+  if (!products.length) return;
+  const items = products.map((p) => ({
+    productId: p.id,
+    name: p.name,
+    size: 'حجم واحد',
+    qty: 1,
+    unitPrice: Number(p.basePrice),
+  }));
+  const subtotal = items.reduce((s, it) => s + it.unitPrice * it.qty, 0);
+  const deliveryFee = 25;
+  const total = subtotal + deliveryFee;
+  const orderNo = `PH-DEMO-${Date.now().toString(36).toUpperCase()}`;
+  const created = new Date(Date.now() - 2 * 86400000).toISOString();
+  const inserted = await query<{ id: string }>(
+    `INSERT INTO orders ("orderNo", "userId", "status", subtotal, "deliveryFee", discount, "couponCode",
+       total, "paymentMethod", "paymentStatus", "paymentReference", "paymentAmount",
+       "deliveryAddress", phone, "customerName", notes, "statusHistory", "createdAt", "updatedAt")
+     VALUES ($1, $2::uuid, 'completed', $3, $4, 0, '', $5, 'cash', 'paid', 'DEMO', $5,
+       $6::jsonb, '01000000004', 'أحمد محمد', 'طلبية تجريبية لتقييم التجربة', $7::jsonb, $8, $8)
+     RETURNING id`,
+    [
+      orderNo, userIds.customer, subtotal, deliveryFee, total,
+      JSON.stringify({ label: 'المنزل', city: 'شبين القناطر', street: 'شارع المركز', building: '12' }),
+      JSON.stringify([{ status: 'completed', changedBy: userIds.admin, at: created }]),
+      created,
+    ],
+  );
+  const orderId = inserted[0].id;
+  for (const [i, it] of items.entries()) {
+    await query(
+      `INSERT INTO order_items ("orderId", "productId", "sortOrder", name, size, extras, qty, "unitPrice", "lineTotal")
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, '[]'::jsonb, $6, $7, $8)`,
+      [orderId, it.productId, i, it.name, it.size, it.qty, it.unitPrice, it.unitPrice * it.qty],
+    );
+  }
+  // Link the demo items' existing meal reviews to this order so they show the
+  // verified-purchase badge (one review per product per user is guaranteed).
+  for (const it of items) {
+    await query(
+      `UPDATE reviews SET "orderId" = $1::uuid, "isVerifiedPurchase" = true
+       WHERE "userId" = $2::uuid AND "productId" = $3::uuid
+         AND "reviewType" = 'meal' AND "orderId" IS NULL`,
+      [orderId, userIds.customer, it.productId],
+    );
+  }
+  console.log('[seed] demo completed order created for customer');
 };
 
 const seedCart = async (userIds: Record<string, string>): Promise<void> => {
@@ -434,6 +498,7 @@ const run = async (): Promise<void> => {
   await repairOfferBanners();
   await seedSettings();
   await seedReviews(userIds);
+  await seedDemoOrder(userIds);
   await seedCart(userIds);
 
   const counts = await query<{ products: string; categories: string; users: string }>(

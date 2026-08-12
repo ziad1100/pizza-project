@@ -176,6 +176,14 @@ export interface EligibleOrder {
   createdAt: string;
 }
 
+export interface PendingReviewOrder {
+  orderId: string;
+  orderNo: string;
+  createdAt: string;
+  unreviewedItems: number;
+  hasExperienceReview: boolean;
+}
+
 export interface MealRatingAgg {
   _id: string;
   name: string;
@@ -187,6 +195,8 @@ export interface MealRatingAgg {
 export interface AdminReviewStats {
   total: number;
   published: number;
+  pending: number;
+  hidden: number;
   today: number;
   fiveStar: number;
   oneStar: number;

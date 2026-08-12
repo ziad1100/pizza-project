@@ -408,6 +408,8 @@
     "fiveStarReviews": "5-star reviews",
     "oneStarReviews": "1-star reviews",
     "restaurantRatingLabel": "Experience rating",
+    "pendingReviews": "Pending reviews",
+    "reviewsOverview": "Reviews overview",
     "mostReviewed": "Most reviewed meals",
     "highestRated": "Highest rated meals",
     "lowestRated": "Lowest rated meals",
@@ -504,6 +506,10 @@
     "order": "Order",
     "anonymous": "Customer",
     "restaurantRating": "Restaurant Rating",
-    "reviews": "{{count}} Reviews"
+    "reviews": "{{count}} Reviews",
+    "promptTitle": "How was your order? 🍕",
+    "promptSubtitle": "Your order was delivered — rate your meals and your experience so we can keep improving.",
+    "promptCta": "Rate now",
+    "promptDismiss": "Maybe later"
   }
 }

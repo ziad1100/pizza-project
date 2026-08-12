@@ -7,6 +7,7 @@ import { getActiveOffers } from '@/api/offers';
 import { getRestaurantStats } from '@/api/reviews';
 import { ProductCard } from '@/components/product/ProductCard';
 import { OfferCard } from '@/components/offer/OfferCard';
+import { ReviewPrompt } from '@/components/review/ReviewPrompt';
 import { StarRating } from '@/components/review/StarRating';
 import { Button } from '@/components/ui/Button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
@@ -80,7 +81,12 @@ export function HomePage() {
               </div>
               <div className="text-center">
                 <p className="flex items-center justify-center gap-1 text-3xl font-extrabold text-gold-500">
-                  <Star className="h-6 w-6 fill-current" />4.6
+                  <Star className="h-6 w-6 fill-current" />
+                  {restaurantRating.isLoading ? (
+                    <Skeleton className="inline-block h-9 w-12 align-middle" />
+                  ) : (
+                    (restaurantRating.data?.average ?? 0).toFixed(1)
+                  )}
                 </p>
                 <p className="mt-1 text-sm text-night-400">{t('hero.statRating')}</p>
               </div>
@@ -103,6 +109,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      <ReviewPrompt />
 
       <section className="border-y border-night-800 bg-night-900/60">
         <div className="container-px flex flex-wrap items-center justify-center gap-x-8 gap-y-3 py-5">

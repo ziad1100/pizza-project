@@ -22,4 +22,6 @@ export const settingsUpdateSchema = z.object({
   deliveryFee: z.coerce.number().min(0).optional(),
   minimumOrder: z.coerce.number().min(0).optional(),
   freeDeliveryOver: z.coerce.number().min(0).optional(),
+  reviewPromptCooldownDays: z.coerce.number().int().min(0).max(365).optional(),
+  reviewPromptDelayHours: z.coerce.number().int().min(0).max(24 * 30).optional(),
 });

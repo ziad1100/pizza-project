@@ -7,6 +7,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks';
 import { addLine, removeLine, updateQty } from '@/store/slices/cartSlice';
 import { toggle as toggleWishlist } from '@/store/slices/wishlistSlice';
 import { Badge } from '@/components/ui/Card';
+import { StarRating } from '@/components/review/StarRating';
 import { cn, formatPrice } from '@/lib/utils';
 
 export function ProductCard({ product }: { product: Product }) {
@@ -97,6 +98,17 @@ export function ProductCard({ product }: { product: Product }) {
         <h3 className="line-clamp-1 font-bold text-night-50 transition-colors group-hover:text-brand-500">
           {i18n.language === 'ar' ? product.name : product.nameEn || product.name}
         </h3>
+        {product.reviewsCount > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <StarRating value={Math.round(product.rating)} readOnly size="sm" ariaLabel={commonT('review.averageRating')} />
+            <span className="text-xs font-bold text-night-300" dir="ltr">
+              {product.rating.toFixed(1)}
+            </span>
+            <span className="text-xs text-night-500">{commonT('review.reviews', { count: product.reviewsCount })}</span>
+          </div>
+        ) : (
+          <p className="text-xs text-night-500">{commonT('review.noReviews')}</p>
+        )}
         <p className="line-clamp-1 text-sm text-night-400">
           {i18n.language === 'ar' ? product.description : product.descriptionEn || product.description}
         </p>

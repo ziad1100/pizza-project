@@ -118,6 +118,35 @@ export const restaurantStats = async (): Promise<Record<string, unknown>> => {
   return rows;
 };
 
+/** Completed orders of a user that still have unreviewed meal items or no experience review yet. */
+export const pendingOrders = async (userId: string): Promise<Record<string, unknown>[]> => {
+  const rows = await query(
+    `SELECT o.id::text AS "orderId", o."orderNo" AS "orderNo", o."createdAt" AS "createdAt",
+       (SELECT count(*)::int FROM order_items oi
+         WHERE oi."orderId" = o.id AND oi."productId" IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM reviews rv
+             WHERE rv."orderId" = o.id AND rv."productId" = oi."productId"
+               AND rv."userId" = $1::uuid AND rv."reviewType" = 'meal')) AS "unreviewedItems",
+       EXISTS (SELECT 1 FROM reviews rv
+         WHERE rv."orderId" = o.id AND rv."userId" = $1::uuid
+           AND rv."reviewType" = 'restaurant') AS "hasExperienceReview"
+     FROM orders o
+     WHERE o."userId" = $1::uuid AND o.status = 'completed'
+       AND (EXISTS (SELECT 1 FROM order_items oi
+             WHERE oi."orderId" = o.id AND oi."productId" IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM reviews rv
+                 WHERE rv."orderId" = o.id AND rv."productId" = oi."productId"
+                   AND rv."userId" = $1::uuid AND rv."reviewType" = 'meal'))
+            OR NOT EXISTS (SELECT 1 FROM reviews rv
+              WHERE rv."orderId" = o.id AND rv."userId" = $1::uuid
+                AND rv."reviewType" = 'restaurant'))
+     ORDER BY o."createdAt" DESC
+     LIMIT 5`,
+    [userId],
+  );
+  return rows;
+};
+
 /** Completed orders of a user that contain the product and are not yet reviewed for it. */
 export const eligibleOrders = async (
   userId: string,
@@ -430,6 +459,8 @@ export const adminStats = async (): Promise<Record<string, unknown>> => {
     SELECT
       (SELECT count(*)::int FROM reviews) AS "total",
       (SELECT count(*)::int FROM reviews WHERE "reviewType" = 'meal' AND status = 'published') AS "published",
+      (SELECT count(*)::int FROM reviews WHERE status = 'pending') AS "pending",
+      (SELECT count(*)::int FROM reviews WHERE status = 'hidden') AS "hidden",
       (SELECT count(*)::int FROM reviews WHERE "createdAt"::date = CURRENT_DATE) AS "today",
       (SELECT count(*)::int FROM reviews WHERE "reviewType" = 'meal' AND status = 'published' AND rating = 5) AS "fiveStar",
       (SELECT count(*)::int FROM reviews WHERE "reviewType" = 'meal' AND status = 'published' AND rating = 1) AS "oneStar",

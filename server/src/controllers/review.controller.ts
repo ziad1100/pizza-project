@@ -38,6 +38,10 @@ export const eligible = asyncHandler(async (req: AuthRequest, res: Response) => 
   }
 });
 
+export const pendingOrders = asyncHandler(async (req: AuthRequest, res: Response) => {
+  res.json(new ApiResponse(200, await reviewsRepo.pendingOrders(req.user!.id)));
+});
+
 export const myReviews = asyncHandler(async (req: AuthRequest, res: Response) => {
   const page = parsePage(req.query.page);
   const limit = parseLimit(req.query.limit);

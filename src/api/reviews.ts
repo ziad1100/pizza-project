@@ -4,6 +4,7 @@ import type {
   EligibleOrder,
   OrderReviewState,
   PaginatedReviews,
+  PendingReviewOrder,
   Review,
   ReviewSummary,
 } from '@/types';
@@ -21,6 +22,9 @@ export const getRestaurantStats = (): Promise<ReviewSummary> =>
 
 export const getOrderReviewState = (orderId: string): Promise<OrderReviewState> =>
   unwrap(api.get<ApiEnvelope<OrderReviewState>>(`/reviews/order/${orderId}`));
+
+export const getPendingReviewOrders = (): Promise<PendingReviewOrder[]> =>
+  unwrap(api.get<ApiEnvelope<PendingReviewOrder[]>>('/reviews/pending-orders'));
 
 export const getReview = (id: string): Promise<Review> =>
   unwrap(api.get<ApiEnvelope<Review>>(`/reviews/${id}`));

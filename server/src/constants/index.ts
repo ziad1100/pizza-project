@@ -144,4 +144,6 @@ export const DEFAULT_SETTINGS = {
   googleMaps: '',
   deliveryFee: 25,
   minimumOrder: 100,
+  reviewPromptCooldownDays: 3,
+  reviewPromptDelayHours: 24,
 };
