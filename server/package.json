@@ -34,6 +34,7 @@
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.22.0",
     "slugify": "^1.6.6",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz",
     "zod": "^3.25.76"
   },
   "devDependencies": {

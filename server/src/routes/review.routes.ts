@@ -1,30 +1,66 @@
 import { Router } from 'express';
 import * as review from '../controllers/review.controller';
-import { requireAuth, requirePermission } from '../middlewares/auth';
+import { requireAuth, requirePermission, requireRole } from '../middlewares/auth';
 import { logActivity } from '../middlewares/activityLogger';
 import { zodBody } from '../middlewares/zod';
 import { cached, invalidateCache } from '../middlewares/cache';
-import { reviewCreateSchema, reviewModerateSchema } from '../schemas';
+import { reviewsLimiter } from '../middlewares/rateLimiter';
+import { ROLES } from '../constants';
+import {
+  restaurantReviewCreateSchema,
+  reviewCreateSchema,
+  reviewModerateSchema,
+  reviewUpdateSchema,
+} from '../schemas';
 
 const router = Router();
 
+const pageSuffix = (suffix: string) => (req: { url: string }) =>
+  `${suffix}:${new URL(req.url, 'http://x').searchParams.get('page') ?? '1'}`;
+
 router.get(
-  '/product/:productId',
-  cached({
-    resource: 'products',
-    ttl: 60,
-    suffix: (req) => `reviews:${req.params.productId}:${new URL(req.url, 'http://x').searchParams.get('page') ?? '1'}`,
-    skip: (req) => Boolean(new URL(req.url, 'http://x').searchParams.get('refresh')),
-  }),
+  '/meal/:mealId',
+  cached({ resource: 'reviews', ttl: 60, suffix: pageSuffix('meal'), skip: (req) => Boolean(new URL(req.url, 'http://x').searchParams.get('refresh')) }),
   review.listByProduct,
 );
 
-router.get('/admin', requireAuth, requirePermission('reviews', 'read'), review.adminList);
-router.delete('/admin/:id', requireAuth, requirePermission('reviews', 'delete'), invalidateCache('products'), review.adminRemove);
+router.get(
+  '/product/:productId',
+  cached({ resource: 'reviews', ttl: 60, suffix: pageSuffix('product'), skip: (req) => Boolean(new URL(req.url, 'http://x').searchParams.get('refresh')) }),
+  review.listByProduct,
+);
 
-router.patch('/:id/moderate', requireAuth, requirePermission('reviews', 'update'), zodBody(reviewModerateSchema), logActivity('moderate', 'reviews'), invalidateCache('products'), review.moderate);
+router.get(
+  '/restaurant',
+  cached({ resource: 'reviews', ttl: 60, suffix: 'restaurant' }),
+  review.restaurant,
+);
 
-router.post('/', requireAuth, zodBody(reviewCreateSchema), invalidateCache('products'), review.create);
-router.delete('/:id', requireAuth, invalidateCache('products'), review.remove);
+const STAFF = [ROLES.ADMIN, ROLES.MANAGER, ROLES.EMPLOYEE] as const;
+
+router.get('/admin', requireAuth, requireRole(...STAFF), requirePermission('reviews', 'read'), review.adminList);
+router.get('/admin/stats', requireAuth, requireRole(...STAFF), requirePermission('reviews', 'read'), review.adminStats);
+router.delete('/admin/:id', requireAuth, requireRole(...STAFF), requirePermission('reviews', 'delete'), invalidateCache('products', 'reviews'), review.adminRemove);
+
+router.get('/order/:orderId', requireAuth, review.orderState);
+router.get('/eligible/:productId', requireAuth, review.eligible);
+router.get('/my', requireAuth, review.myReviews);
+router.get('/:id', requireAuth, review.getOne);
+
+router.patch(
+  '/:id/moderate',
+  requireAuth,
+  requireRole(...STAFF),
+  requirePermission('reviews', 'update'),
+  zodBody(reviewModerateSchema),
+  logActivity('moderate', 'reviews'),
+  invalidateCache('products', 'reviews'),
+  review.moderate,
+);
+
+router.post('/', requireAuth, reviewsLimiter, zodBody(reviewCreateSchema), invalidateCache('products', 'reviews'), review.create);
+router.post('/restaurant', requireAuth, reviewsLimiter, zodBody(restaurantReviewCreateSchema), invalidateCache('reviews'), review.createRestaurant);
+router.patch('/:id', requireAuth, reviewsLimiter, zodBody(reviewUpdateSchema), invalidateCache('products', 'reviews'), review.update);
+router.delete('/:id', requireAuth, reviewsLimiter, invalidateCache('products', 'reviews'), review.remove);
 
 export default router;

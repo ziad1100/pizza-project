@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Clock, Flame, Leaf, Phone, Star, Tag, Truck, UtensilsCrossed } from 'lucide-react';
 import { getBestSellers, listProducts } from '@/api/products';
 import { getActiveOffers } from '@/api/offers';
+import { getRestaurantStats } from '@/api/reviews';
 import { ProductCard } from '@/components/product/ProductCard';
 import { OfferCard } from '@/components/offer/OfferCard';
+import { StarRating } from '@/components/review/StarRating';
 import { Button } from '@/components/ui/Button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
 
@@ -14,6 +16,7 @@ export function HomePage() {
 
   const bestSellers = useQuery({ queryKey: ['products', 'best-sellers'], queryFn: getBestSellers });
   const offers = useQuery({ queryKey: ['offers', 'active'], queryFn: getActiveOffers });
+  const restaurantRating = useQuery({ queryKey: ['reviews', 'restaurant'], queryFn: getRestaurantStats });
   const productsCount = useQuery({
     queryKey: ['products', 'count'],
     queryFn: () => listProducts({ limit: 1 }).then((p) => p.total),
@@ -113,6 +116,16 @@ export function HomePage() {
           </span>
           <span className="hidden text-night-600 sm:block">|</span>
           <span className="text-sm text-night-400">{t('home.ratingReviews')}</span>
+          {restaurantRating.data && restaurantRating.data.total > 0 ? (
+            <span className="flex items-center gap-2 text-sm font-semibold text-night-200">
+              {t('review.restaurantRating')}
+              <StarRating value={Math.round(restaurantRating.data.average)} readOnly size="sm" ariaLabel={t('review.restaurantRating')} />
+              <span dir="ltr">{restaurantRating.data.average.toFixed(1)}</span>
+              <span className="font-normal text-night-400">
+                {t('review.basedOn', { count: restaurantRating.data.total })}
+              </span>
+            </span>
+          ) : null}
         </div>
       </section>
 

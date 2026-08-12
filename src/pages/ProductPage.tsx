@@ -9,6 +9,7 @@ import { addLine } from '@/store/slices/cartSlice';
 import { toggle as toggleWishlist } from '@/store/slices/wishlistSlice';
 import { Button } from '@/components/ui/Button';
 import { Badge, Skeleton } from '@/components/ui/Card';
+import { ReviewsSection } from '@/components/review/ReviewsSection';
 import { cn, formatPrice } from '@/lib/utils';
 
 export function ProductPage() {
@@ -125,6 +126,9 @@ export function ProductPage() {
             <span className="flex items-center gap-1 text-gold-500">
               <Star className="h-4 w-4 fill-current" />
               {product.rating.toFixed(1)}
+            </span>
+            <span className="flex items-center gap-1 text-night-500">
+              {t('review.reviews', { count: product.reviewsCount })}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
@@ -250,6 +254,8 @@ export function ProductPage() {
           </div>
         </div>
       </div>
+
+      <ReviewsSection productId={product._id} productName={lang === 'ar' ? product.name : product.nameEn || product.name} />
     </div>
   );
 }

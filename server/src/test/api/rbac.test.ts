@@ -127,11 +127,29 @@ describe('reviews & orders RBAC', () => {
 
   it('employee can moderate reviews, customer cannot', async () => {
     const { employee, customer } = await setupStaff();
+    const admin = await createUser({ role: 'admin' });
     const product = await setupProduct();
-    const created = await api.post(REVIEWS).set(bearer(customer.id)).send({ product: toId(product._id), rating: 5 });
+    const orderId = (
+      await api
+        .post(ORDERS)
+        .set(bearer(customer.id))
+        .send({
+          items: [{ product: toId(product._id), qty: 1 }],
+          address: { city: 'Cairo', area: 'Maadi', street: 'Main', building: '5' },
+          phone: '01000000000',
+          customerName: 'Test Customer',
+        })
+    ).body.data._id;
+    for (const next of ['preparing', 'on_delivery', 'completed']) {
+      await api.patch(`${ORDERS}/${orderId}/status`).set(bearer(admin.id)).send({ status: next });
+    }
+    const created = await api
+      .post(REVIEWS)
+      .set(bearer(customer.id))
+      .send({ product: toId(product._id), orderId, rating: 5 });
     const reviewId = created.body.data._id;
-    expect((await api.patch(`${REVIEWS}/${reviewId}/moderate`).set(bearer(customer.id)).send({ isApproved: false })).status).toBe(403);
-    expect((await api.patch(`${REVIEWS}/${reviewId}/moderate`).set(bearer(employee.id)).send({ isApproved: false })).status).toBe(200);
+    expect((await api.patch(`${REVIEWS}/${reviewId}/moderate`).set(bearer(customer.id)).send({ status: 'hidden' })).status).toBe(403);
+    expect((await api.patch(`${REVIEWS}/${reviewId}/moderate`).set(bearer(employee.id)).send({ status: 'hidden' })).status).toBe(200);
   });
 
   it('staff can list orders; unauthenticated cannot', async () => {

@@ -7,6 +7,7 @@ import { cancelOrder, getMyOrders } from '@/api/orders';
 import { getErrorMessage } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Badge, Card, CardContent, EmptyState, Skeleton } from '@/components/ui/Card';
+import { OrderReviewPanel } from '@/components/review/OrderReviewPanel';
 import { formatPrice } from '@/lib/utils';
 
 const statusTone: Record<string, 'brand' | 'gold' | 'success' | 'neutral'> = {
@@ -106,6 +107,9 @@ export function OrdersPage() {
                   ) : null}
                 </div>
               </div>
+              {order.status === 'completed' ? (
+                <OrderReviewPanel orderId={order._id} orderNo={order.orderNo} />
+              ) : null}
             </CardContent>
           </Card>
         ))}

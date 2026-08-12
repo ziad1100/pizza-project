@@ -47,6 +47,14 @@ export const rollupDailyStats = async (days: number): Promise<void> => {
   );
 };
 
+export const customersWithOrders = async (): Promise<number> => {
+  const rows = await query<{ count: number }>(
+    `SELECT count(DISTINCT o."userId")::int AS count FROM orders o
+     WHERE o.status = 'completed' AND o."userId" IS NOT NULL`,
+  );
+  return rows[0]?.count ?? 0;
+};
+
 export const totals = async (): Promise<Record<string, number>> => {
   const rows = await query(`
     SELECT
@@ -93,6 +101,22 @@ export const topProducts = async (): Promise<Array<Record<string, unknown>>> => 
      GROUP BY oi.name
      ORDER BY count DESC, revenue DESC
      LIMIT 8`,
+  )) as Array<Record<string, unknown>>;
+};
+
+/** Units + revenue per sub-category from completed orders (for dashboards/exports). */
+export const categorySales = async (): Promise<Array<Record<string, unknown>>> => {
+  return (await query(
+    `SELECT c.name, c."nameEn" AS "nameEn",
+            COALESCE(SUM(oi.qty), 0)::int AS units,
+            COALESCE(SUM(oi."lineTotal"), 0)::float8 AS revenue
+     FROM order_items oi
+     JOIN orders o ON o.id = oi."orderId"
+     JOIN products p ON p.id = oi."productId"
+     JOIN categories c ON c.id = p."categoryId"
+     WHERE o.status = 'completed'
+     GROUP BY c.id, c.name, c."nameEn", c."sortOrder"
+     ORDER BY revenue DESC, units DESC`,
   )) as Array<Record<string, unknown>>;
 };
 

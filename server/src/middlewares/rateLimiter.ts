@@ -42,3 +42,12 @@ export const adminApiLimiter = rateLimit({
   message: { success: false, message: 'Too many requests, please try again later.' },
   skip: skipDisabled,
 });
+
+export const reviewsLimiter = rateLimit({
+  windowMs: num(process.env.REVIEW_WINDOW_MS, 10 * 60 * 1000),
+  limit: num(process.env.REVIEW_LIMIT, 20),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many review requests, please try again later.' },
+  skip: skipDisabled,
+});

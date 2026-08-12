@@ -7,25 +7,69 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import type { AuthRequest } from '../middlewares/auth';
 
+const parsePage = (raw: unknown): number => Math.max(1, Number(raw) || 1);
+const parseLimit = (raw: unknown): number => Math.min(50, Math.max(1, Number(raw) || 10));
+const str = (raw: unknown): string => (typeof raw === 'string' ? raw.trim() : '');
+
 export const listByProduct = asyncHandler(async (req: Request, res: Response) => {
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
-  const result = await reviewsRepo.listByProduct(req.params.productId, page, limit);
+  const productId = str(req.params.mealId || req.params.productId);
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit);
+  const result = await reviewsRepo.listByProduct(productId, page, limit);
   res.json(new ApiResponse(200, { ...result, page, limit }));
 });
 
+export const restaurant = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(new ApiResponse(200, await reviewsRepo.restaurantStats()));
+});
+
+export const orderState = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const state = await reviewsRepo.orderReviewState(req.user!.id, req.params.orderId);
+  if (!state) throw new ApiError(404, 'Order not found');
+  res.json(new ApiResponse(200, state));
+});
+
+export const eligible = asyncHandler(async (req: AuthRequest, res: Response) => {
+  try {
+    const orders = await reviewsRepo.eligibleOrders(req.user!.id, str(req.params.productId));
+    res.json(new ApiResponse(200, orders));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
+});
+
+export const myReviews = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit);
+  const result = await reviewsRepo.myList(req.user!.id, page, limit);
+  res.json(new ApiResponse(200, { ...result, page, limit }));
+});
+
+export const getOne = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const review = await reviewsRepo.getOwned(req.params.id, req.user!.id);
+  if (!review) throw new ApiError(404, 'Review not found');
+  res.json(new ApiResponse(200, review));
+});
+
 export const adminList = asyncHandler(async (req: Request, res: Response) => {
-  const page = Math.max(1, Number(req.query.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
-  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-  const isApproved = req.query.isApproved;
+  const page = parsePage(req.query.page);
+  const limit = parseLimit(req.query.limit);
   const result = await reviewsRepo.adminList(
     page,
     limit,
-    q,
-    isApproved === 'true' || isApproved === 'false' ? String(isApproved) : '',
+    str(req.query.q),
+    str(req.query.status),
+    str(req.query.rating),
+    str(req.query.type),
+    str(req.query.product),
+    str(req.query.sort),
+    str(req.query.verified),
   );
   res.json(new ApiResponse(200, { ...result, page, limit }));
+});
+
+export const adminStats = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(new ApiResponse(200, await reviewsRepo.adminStats()));
 });
 
 export const adminRemove = asyncHandler(async (req: Request, res: Response) => {
@@ -38,12 +82,44 @@ export const adminRemove = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { product: productId, rating, comment } = req.body;
-  const product = await productsRepo.exists(productId);
-  if (!product) throw new ApiError(404, 'Product not found');
+  const { product, orderId, rating, comment } = req.body;
+  if (!(await productsRepo.exists(product))) throw new ApiError(404, 'Product not found');
   try {
-    const review = await reviewsRepo.create(req.user!.id, productId, rating, comment ?? '');
-    res.status(201).json(new ApiResponse(201, review, 'Review submitted'));
+    const review = await reviewsRepo.createMeal(req.user!.id, orderId, product, rating, comment ?? '');
+    res.status(201).json(new ApiResponse(201, review, 'Review submitted successfully'));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
+});
+
+export const createRestaurant = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { orderId, rating, comment, foodQuality, delivery, packaging, service, overall } = req.body;
+  try {
+    const review = await reviewsRepo.createRestaurant(req.user!.id, orderId, rating, comment ?? '', {
+      foodQuality,
+      delivery,
+      packaging,
+      service,
+      overall,
+    });
+    res.status(201).json(new ApiResponse(201, review, 'Review submitted successfully'));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
+});
+
+export const update = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { rating, comment, foodQuality, delivery, packaging, service, overall } = req.body;
+  try {
+    const review = await reviewsRepo.update(req.params.id, req.user!.id, rating, comment, {
+      foodQuality,
+      delivery,
+      packaging,
+      service,
+      overall,
+    });
+    if (!review) throw new ApiError(404, 'Review not found');
+    res.json(new ApiResponse(200, review, 'Review updated'));
   } catch (err) {
     throw apiErrorFromPg(err);
   }
@@ -59,8 +135,8 @@ export const remove = asyncHandler(async (req: AuthRequest, res: Response) => {
 });
 
 export const moderate = asyncHandler(async (req: Request, res: Response) => {
-  const { isApproved } = req.body;
-  const review = await reviewsRepo.moderate(req.params.id, Boolean(isApproved));
+  const { status } = req.body;
+  const review = await reviewsRepo.moderate(req.params.id, status);
   if (!review) throw new ApiError(404, 'Review not found');
   res.json(new ApiResponse(200, review));
 });

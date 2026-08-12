@@ -2,9 +2,9 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CalendarDays, Package, RefreshCw, ShoppingBag, TrendingUp, Users } from 'lucide-react';
+import { Banknote, CalendarDays, Download, Package, RefreshCw, ShoppingBag, TrendingUp, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { adminListOrders, getDashboard, getDashboardDay, refreshDashboard } from '@/api/admin';
+import { adminListOrders, exportDashboard, getDashboard, getDashboardDay, refreshDashboard } from '@/api/admin';
 import { getErrorMessage } from '@/lib/api';
 import { Card, CardContent, EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -44,6 +44,22 @@ export function AdminIndexPage() {
       toast.success(t('admin.refreshSuccess'));
     },
     onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: () => exportDashboard(day, period),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dashboard-report-${day}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(t('admin.exportSuccess'));
+    },
+    onError: (error) => toast.error(getErrorMessage(error) || t('admin.exportError')),
   });
 
   const dayStats = useQuery({
@@ -108,16 +124,28 @@ export function AdminIndexPage() {
       <PageHeader
         title={t('admin.dashboardHeader')}
         action={
-          <Button
-            variant="outline"
-            size="sm"
-            loading={refreshMutation.isPending}
-            disabled={refreshMutation.isPending}
-            onClick={() => refreshMutation.mutate()}
-          >
-            <RefreshCw className="h-4 w-4" />
-            {t('admin.refresh')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              loading={exportMutation.isPending}
+              disabled={exportMutation.isPending}
+              onClick={() => exportMutation.mutate()}
+            >
+              <Download className="h-4 w-4" />
+              {exportMutation.isPending ? t('admin.exporting') : t('admin.export')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              loading={refreshMutation.isPending}
+              disabled={refreshMutation.isPending}
+              onClick={() => refreshMutation.mutate()}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {t('admin.refresh')}
+            </Button>
+          </div>
         }
       />
 

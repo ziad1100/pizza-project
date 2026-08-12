@@ -202,18 +202,33 @@ describe('zod validation', () => {
       expect(res.status).toBe(422);
     });
 
-    it('rejects a non-boolean rating on review moderate with 422', async () => {
+    it('rejects an invalid status on review moderate with 422', async () => {
       const { product } = await setupCatalog();
       const admin = await createUser({ role: 'admin' });
+      const customer = await createUser();
+      const orderId = (
+        await api
+          .post(ORDERS)
+          .set(bearer(customer.id))
+          .send({
+            items: [{ product: toId(product._id), qty: 1 }],
+            address: { city: 'Cairo', area: 'Maadi', street: 'Main', building: '5' },
+            phone: '01000000000',
+            customerName: 'Test Customer',
+          })
+      ).body.data._id;
+      for (const next of ['preparing', 'on_delivery', 'completed']) {
+        await api.patch(`${ORDERS}/${orderId}/status`).set(bearer(admin.id)).send({ status: next });
+      }
       const created = await api
         .post(REVIEWS)
-        .set(bearer(admin.id))
-        .send({ product: toId(product._id), rating: 5 });
+        .set(bearer(customer.id))
+        .send({ product: toId(product._id), orderId, rating: 5 });
       const reviewId = created.body.data._id;
       const res = await api
         .patch(`${REVIEWS}/${reviewId}/moderate`)
         .set(bearer(admin.id))
-        .send({ isApproved: 'yes' });
+        .send({ status: 'spam' });
       expect(res.status).toBe(422);
     });
   });

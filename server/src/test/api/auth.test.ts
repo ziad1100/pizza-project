@@ -10,6 +10,7 @@ vi.mock('../../middlewares/rateLimiter', () => {
     subscribeLimiter: pass,
     contactLimiter: pass,
     adminApiLimiter: pass,
+    reviewsLimiter: pass,
   };
 });
 

@@ -10,6 +10,7 @@ router.use(requirePermission('analytics', 'read'));
 
 router.get('/dashboard', cached({ resource: 'dashboard', ttl: 60, suffix: 'dashboard' }), analytics.dashboard);
 router.get('/day', analytics.day);
+router.get('/export', analytics.exportStats);
 router.post('/refresh', invalidateCache('dashboard'), analytics.refresh);
 
 export default router;

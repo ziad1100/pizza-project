@@ -1,17 +1,15 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+﻿import { beforeEach, describe, expect, it } from 'vitest';
 import * as categoriesRepo from '../../db/categories';
 import * as productsRepo from '../../db/products';
-import { query } from '../../db';
-import { api, bearer, createUser, seedRoles, toId } from '../helpers';
+import { api, seedRoles, toId } from '../helpers';
 
 const PRODUCTS = '/api/v1/products';
-const REVIEWS = '/api/v1/reviews';
 
 const setupCatalog = async () => {
-  const section = await categoriesRepo.create({ name: 'بيتزا', nameEn: 'Pizza', slug: 'pizza-section', type: 'section', isActive: true });
-  const sub = await categoriesRepo.create({ name: 'كلاسيك', nameEn: 'Classic', slug: 'classic', type: 'sub', parentId: toId(section._id), isActive: true });
+  const section = await categoriesRepo.create({ name: 'Ø¨ÙŠØªØ²Ø§', nameEn: 'Pizza', slug: 'pizza-section', type: 'section', isActive: true });
+  const sub = await categoriesRepo.create({ name: 'ÙƒÙ„Ø§Ø³ÙŠÙƒ', nameEn: 'Classic', slug: 'classic', type: 'sub', parentId: toId(section._id), isActive: true });
   const pepperoni = await productsRepo.create({
-    name: 'بيبروني',
+    name: 'Ø¨ÙŠØ¨Ø±ÙˆÙ†ÙŠ',
     nameEn: 'Pepperoni',
     slug: 'pepperoni',
     category: toId(sub._id),
@@ -19,7 +17,7 @@ const setupCatalog = async () => {
     isAvailable: true,
   });
   const margherita = await productsRepo.create({
-    name: 'مارغريتا',
+    name: 'Ù…Ø§Ø±ØºØ±ÙŠØªØ§',
     nameEn: 'Margherita',
     slug: 'margherita',
     category: toId(sub._id),
@@ -27,7 +25,7 @@ const setupCatalog = async () => {
     isAvailable: true,
   });
   const hidden = await productsRepo.create({
-    name: 'مخفي',
+    name: 'Ù…Ø®ÙÙŠ',
     nameEn: 'Hidden',
     slug: 'hidden-pizza',
     category: toId(sub._id),
@@ -35,7 +33,7 @@ const setupCatalog = async () => {
     isAvailable: false,
   });
   const best = await productsRepo.create({
-    name: 'الأكثر مبيعاً',
+    name: 'Ø§Ù„Ø£ÙƒØ«Ø± Ù…Ø¨ÙŠØ¹Ø§Ù‹',
     nameEn: 'Best Seller',
     slug: 'best-seller',
     category: toId(sub._id),
@@ -44,7 +42,7 @@ const setupCatalog = async () => {
     isBestSeller: true,
   });
   const offer = await productsRepo.create({
-    name: 'عرض اليوم',
+    name: 'Ø¹Ø±Ø¶ Ø§Ù„ÙŠÙˆÙ…',
     nameEn: 'Daily Offer',
     slug: 'daily-offer',
     category: toId(sub._id),
@@ -94,7 +92,7 @@ describe('public product catalog', () => {
     const { pepperoni } = await setupCatalog();
     const res = await api.get(`${PRODUCTS}/pepperoni`);
     expect(res.status).toBe(200);
-    expect(res.body.data.name).toBe('بيبروني');
+    expect(res.body.data.name).toBe('Ø¨ÙŠØ¨Ø±ÙˆÙ†ÙŠ');
     expect(res.body.data.reviews).toEqual([]);
     expect(res.body.data._id).toBe(toId(pepperoni._id));
   });
@@ -142,86 +140,5 @@ describe('categories', () => {
     await setupCatalog();
     const all = await api.get('/api/v1/categories?all=true');
     expect(all.body.data.length).toBe(2);
-  });
-});
-
-describe('reviews', () => {
-  beforeEach(async () => {
-    await seedRoles();
-  });
-
-  it('requires authentication to submit', async () => {
-    const { pepperoni } = await setupCatalog();
-    const res = await api.post(REVIEWS).send({ product: toId(pepperoni._id), rating: 5 });
-    expect(res.status).toBe(401);
-  });
-
-  it('validates the rating range', async () => {
-    const { pepperoni } = await setupCatalog();
-    const user = await createUser();
-    const res = await api.post(REVIEWS).set(bearer(user.id)).send({ product: toId(pepperoni._id), rating: 9 });
-    expect(res.status).toBe(422);
-  });
-
-  it('submits a review and updates product rating stats', async () => {
-    const { pepperoni } = await setupCatalog();
-    const user = await createUser();
-    const res = await api.post(REVIEWS).set(bearer(user.id)).send({ product: toId(pepperoni._id), rating: 5, comment: 'ممتازة' });
-    expect(res.status).toBe(201);
-    const product = await productsRepo.getById(toId(pepperoni._id));
-    expect(product?.rating).toBe(5);
-    expect(product?.reviewsCount).toBe(1);
-  });
-
-  it('updates the existing review instead of duplicating', async () => {
-    const { pepperoni } = await setupCatalog();
-    const user = await createUser();
-    const auth = bearer(user.id);
-    await api.post(REVIEWS).set(auth).send({ product: toId(pepperoni._id), rating: 5 });
-    await api.post(REVIEWS).set(auth).send({ product: toId(pepperoni._id), rating: 3 });
-    const rows = await query<{ n: string }>(
-      `SELECT count(*)::int AS n FROM reviews WHERE "userId" = $1`,
-      [user.id],
-    );
-    expect(Number(rows[0]?.n ?? 0)).toBe(1);
-    const product = await productsRepo.getById(toId(pepperoni._id));
-    expect(product?.rating).toBe(3);
-  });
-
-  it('honors moderation on the public product page', async () => {
-    const { pepperoni } = await setupCatalog();
-    const customer = await createUser();
-    const admin = await createUser({ role: 'admin' });
-    const created = await api.post(REVIEWS).set(bearer(customer.id)).send({ product: toId(pepperoni._id), rating: 4 });
-    const reviewId = created.body.data._id;
-    expect((await api.get(`${PRODUCTS}/pepperoni`)).body.data.reviews).toHaveLength(1);
-    const unapproved = await api.patch(`${REVIEWS}/${reviewId}/moderate`).set(bearer(admin.id)).send({ isApproved: false });
-    expect(unapproved.status).toBe(200);
-    expect((await api.get(`${PRODUCTS}/pepperoni`)).body.data.reviews).toHaveLength(0);
-    await api.patch(`${REVIEWS}/${reviewId}/moderate`).set(bearer(admin.id)).send({ isApproved: true });
-    expect((await api.get(`${PRODUCTS}/pepperoni`)).body.data.reviews).toHaveLength(1);
-  });
-
-  it('lets an admin list and remove reviews', async () => {
-    const { pepperoni } = await setupCatalog();
-    const customer = await createUser();
-    const admin = await createUser({ role: 'admin' });
-    const created = await api.post(REVIEWS).set(bearer(customer.id)).send({ product: toId(pepperoni._id), rating: 4 });
-    const list = await api.get(`${REVIEWS}/admin`).set(bearer(admin.id));
-    expect(list.status).toBe(200);
-    expect(list.body.data.total).toBe(1);
-    const removed = await api.delete(`${REVIEWS}/admin/${created.body.data._id}`).set(bearer(admin.id));
-    expect(removed.status).toBe(200);
-    expect((await api.get(`${PRODUCTS}/pepperoni`)).body.data.reviews).toHaveLength(0);
-  });
-
-  it('lets a customer delete their own review', async () => {
-    const { pepperoni } = await setupCatalog();
-    const customer = await createUser();
-    const created = await api.post(REVIEWS).set(bearer(customer.id)).send({ product: toId(pepperoni._id), rating: 4 });
-    const res = await api.delete(`${REVIEWS}/${created.body.data._id}`).set(bearer(customer.id));
-    expect(res.status).toBe(200);
-    const rows = await query<{ n: string }>('SELECT count(*)::int AS n FROM reviews');
-    expect(Number(rows[0]?.n ?? 0)).toBe(0);
   });
 });

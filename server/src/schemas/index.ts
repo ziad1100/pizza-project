@@ -7,7 +7,7 @@ export { offerCreateSchema, offerUpdateSchema } from './offer';
 export { couponCreateSchema, couponUpdateSchema, couponValidateSchema } from './coupon';
 export { bannerCreateSchema, bannerUpdateSchema } from './banner';
 export { branchCreateSchema, branchUpdateSchema } from './branch';
-export { reviewCreateSchema, reviewModerateSchema } from './review';
+export { reviewCreateSchema, reviewUpdateSchema, reviewModerateSchema, restaurantReviewCreateSchema } from './review';
 export { contactSchema, newsletterSubscribeSchema, newsletterUnsubscribeSchema } from './contact';
 export { postCreateSchema, postUpdateSchema } from './post';
 export { settingsUpdateSchema } from './settings';

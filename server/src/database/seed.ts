@@ -15,7 +15,6 @@ import * as bannersRepo from '../db/banners';
 import * as branchesRepo from '../db/branches';
 import * as deliveryZonesRepo from '../db/deliveryZones';
 import * as postsRepo from '../db/posts';
-import * as reviewsRepo from '../db/reviews';
 import * as cartsRepo from '../db/carts';
 import { upsertSetting } from '../db/settings';
 import { query, row } from '../db';
@@ -326,7 +325,32 @@ const seedReviews = async (userIds: Record<string, string>): Promise<void> => {
   ];
   for (const [i, product] of products.entries()) {
     const rating = 4 + (i % 2);
-    await reviewsRepo.create(userIds.customer, product.id, rating, comments[i % comments.length]);
+    await query(
+      `INSERT INTO reviews ("userId", "productId", "reviewType", rating, comment, status, "isVerifiedPurchase")
+       VALUES ($1::uuid, $2::uuid, 'meal', $3, $4, 'published', false)`,
+      [userIds.customer, product.id, rating, comments[i % comments.length]],
+    );
+    await query(
+      `UPDATE products SET rating = COALESCE((SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews
+         WHERE "productId" = $1 AND "reviewType" = 'meal' AND status = 'published'), 0),
+       "reviewsCount" = (SELECT count(*) FROM reviews
+         WHERE "productId" = $1 AND "reviewType" = 'meal' AND status = 'published')
+       WHERE id = $1::uuid`,
+      [product.id],
+    );
+  }
+
+  const experience = [
+    { rating: 5, foodQuality: 5, delivery: 5, packaging: 4, service: 5, overall: 5, comment: 'تجربة رائعة من أول الطلب للتوصيل، الأكل كان سخن والطعم ممتاز.' },
+    { rating: 4, foodQuality: 4, delivery: 5, packaging: 4, service: 4, overall: 4, comment: 'التوصيل سريع والتغليف محكم، الأطباق كانت طازجة ولذيذة.' },
+  ];
+  for (const r of experience) {
+    await query(
+      `INSERT INTO reviews ("userId", "reviewType", rating, comment, status, "isVerifiedPurchase",
+         "foodQuality", delivery, packaging, service, "overall")
+       VALUES ($1::uuid, 'restaurant', $2, $3, 'published', false, $4, $5, $6, $7, $8)`,
+      [userIds.customer, r.rating, r.comment, r.foodQuality, r.delivery, r.packaging, r.service, r.overall],
+    );
   }
   console.log('[seed] reviews created');
 };

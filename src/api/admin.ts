@@ -17,6 +17,8 @@ import type {
   Product,
   ProductPayload,
   Review,
+  ReviewStatus,
+  AdminReviewStats,
   SettingsMap,
   User,
 } from '@/types';
@@ -206,19 +208,45 @@ export const getDashboardDay = (date: string): Promise<DayStats> =>
 export const refreshDashboard = (): Promise<{ ok: boolean }> =>
   unwrap(api.post<ApiEnvelope<{ ok: boolean }>>('/analytics/refresh'));
 
+export const exportDashboard = async (date?: string, period = 'today'): Promise<Blob> => {
+  const res = await api.get<Blob>('/analytics/export', {
+    params: { date: date || undefined, period },
+    responseType: 'blob',
+  });
+  return res.data;
+};
+
 export interface ReviewListParams extends ListParams {
-  isApproved?: string;
+  status?: string;
+  rating?: string;
+  type?: string;
+  product?: string;
+  sort?: string;
+  verified?: string;
 }
 
 export const adminListReviews = (params: ReviewListParams): Promise<Paginated<Review>> =>
   unwrap(
     api.get<ApiEnvelope<Paginated<Review>>>('/reviews/admin', {
-      params: { page: params.page ?? 1, limit: params.limit ?? 10, q: params.q, isApproved: params.isApproved },
+      params: {
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+        q: params.q,
+        status: params.status,
+        rating: params.rating,
+        type: params.type,
+        product: params.product,
+        sort: params.sort,
+        verified: params.verified,
+      },
     }),
   );
 
-export const updateReviewApproval = (id: string, isApproved: boolean): Promise<Review> =>
-  unwrap(api.patch<ApiEnvelope<Review>>(`/reviews/${id}/moderate`, { isApproved }));
+export const adminModerateReview = (id: string, status: ReviewStatus): Promise<Review> =>
+  unwrap(api.patch<ApiEnvelope<Review>>(`/reviews/${id}/moderate`, { status }));
+
+export const adminReviewStats = (): Promise<AdminReviewStats> =>
+  unwrap(api.get<ApiEnvelope<AdminReviewStats>>('/reviews/admin/stats'));
 
 export const deleteReview = (id: string): Promise<null> =>
   unwrap(api.delete<ApiEnvelope<null>>(`/reviews/admin/${id}`));

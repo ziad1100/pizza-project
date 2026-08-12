@@ -95,6 +95,9 @@ export interface Product {
   updatedAt: string;
 }
 
+export type ReviewStatus = 'pending' | 'published' | 'hidden';
+export type ReviewType = 'meal' | 'restaurant';
+
 export interface ReviewAuthor {
   _id: string;
   fullName: string;
@@ -113,12 +116,86 @@ export interface Review {
   _id: string;
   user: string | ReviewAuthor;
   product: string | ReviewProductRef;
+  orderId: string;
+  reviewType: ReviewType;
+  status: ReviewStatus;
   rating: number;
   comment: string;
   images?: string[];
-  isApproved: boolean;
+  isVerifiedPurchase: boolean;
+  foodQuality?: number | null;
+  delivery?: number | null;
+  packaging?: number | null;
+  service?: number | null;
+  overall?: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ReviewSummary {
+  total: number;
+  average: number;
+  '5': number;
+  '4': number;
+  '3': number;
+  '2': number;
+  '1': number;
+}
+
+export interface PaginatedReviews {
+  items: Review[];
+  total: number;
+  page: number;
+  pages: number;
+  limit: number;
+  summary?: ReviewSummary;
+}
+
+export interface ReviewOrderItemState {
+  productId: string;
+  name: string;
+  nameEn?: string;
+  slug?: string;
+  images?: string[];
+  itemName: string;
+  qty: number;
+  size?: string | null;
+  reviewId: string | null;
+  reviewRating: number | null;
+}
+
+export interface OrderReviewState {
+  order: { _id: string; status: string; orderNo: string };
+  items: ReviewOrderItemState[];
+  restaurant: Pick<Review, 'rating' | 'comment' | 'foodQuality' | 'delivery' | 'packaging' | 'service' | 'overall' | 'createdAt' | 'updatedAt'> & { _id: string } | null;
+}
+
+export interface EligibleOrder {
+  _id: string;
+  orderNo: string;
+  createdAt: string;
+}
+
+export interface MealRatingAgg {
+  _id: string;
+  name: string;
+  nameEn?: string;
+  reviews: number;
+  average?: number;
+}
+
+export interface AdminReviewStats {
+  total: number;
+  published: number;
+  today: number;
+  fiveStar: number;
+  oneStar: number;
+  average: number;
+  restaurantTotal: number;
+  restaurantAverage: number;
+  mostReviewed: MealRatingAgg[];
+  highestRated: MealRatingAgg[];
+  lowestRated: MealRatingAgg[];
 }
 
 export interface Category {

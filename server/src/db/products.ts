@@ -65,7 +65,7 @@ const SORTS: Record<string, string> = {
   price_asc: 'p."basePrice" ASC, p."createdAt" DESC',
   price_desc: 'p."basePrice" DESC, p."createdAt" DESC',
   rating: 'p.rating DESC, p."createdAt" DESC',
-  bestseller: 'p."isBestSeller" DESC, p.rating DESC, p."createdAt" DESC',
+  bestseller: 'p."sortOrder" ASC, p."isBestSeller" DESC, p.rating DESC, p."createdAt" DESC',
 };
 
 interface Page<T> {
@@ -127,7 +127,7 @@ export const adminList = async (
     FROM products p
     LEFT JOIN categories c ON c.id = p."categoryId"
     ${where}
-    ORDER BY p."createdAt" DESC, p.id
+    ORDER BY p."sortOrder", p."createdAt" DESC, p.id
     LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
   const rows = (await query(sql, [...values, limit, (page - 1) * limit])) as Array<Record<string, unknown>>;
   return toPage(rows, limit);

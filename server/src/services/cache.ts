@@ -11,6 +11,7 @@ const TTL_SECONDS = {
   posts: 60,
   banners: 60,
   dashboard: 60,
+  reviews: 60,
 } as const;
 
 export type CacheResource = keyof typeof TTL_SECONDS;

@@ -78,7 +78,9 @@ const REVIEWS_ROW_COLS = `
   r.rating,
   r.comment,
   r.images,
-  r."isApproved",
+  r.status,
+  r."reviewType"::text AS "reviewType",
+  r."isVerifiedPurchase" AS "isVerifiedPurchase",
   r."createdAt",
   jsonb_build_object('_id', u.id::text, 'fullName', u."fullName", 'avatar', u.avatar) AS "user"`;
 
@@ -89,7 +91,7 @@ export const getProductBySlug = asyncHandler(async (req: Request, res: Response)
     `SELECT ${REVIEWS_ROW_COLS}
      FROM reviews r
      JOIN users u ON u.id = r."userId"
-     WHERE r."productId" = $1::uuid AND r."isApproved" = true
+     WHERE r."productId" = $1::uuid AND r."reviewType" = 'meal' AND r.status = 'published'
      ORDER BY r."createdAt" DESC
      LIMIT 20`,
     [product._id],
