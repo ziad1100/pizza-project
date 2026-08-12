@@ -201,20 +201,21 @@ export const create = async (data: {
   calories?: number;
   sizes?: Array<{ name: string; nameEn?: string; price: number; isAvailable?: boolean }>;
   extras?: Array<{ name: string; nameEn?: string; price: number }>;
+  sortOrder?: number;
 }): Promise<Record<string, unknown>> => {
   let id = '';
   await withTransaction(async (tx) => {
     const inserted = await tx.query<{ id: string }>(
       `INSERT INTO products (name, "nameEn", slug, description, "descriptionEn", "basePrice", images,
         ingredients, "ingredientsEn", tags, "categoryId", "isAvailable", "isBestSeller", "isOffer",
-        discount, "preparationTime", calories)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::uuid,$12,$13,$14,$15,$16,$17)
+        discount, "preparationTime", calories, "sortOrder")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::uuid,$12,$13,$14,$15,$16,$17,$18)
        RETURNING id`,
       [data.name, data.nameEn ?? '', data.slug, data.description ?? '', data.descriptionEn ?? '',
        Number(data.basePrice) || 0, data.images ?? [], data.ingredients ?? [], data.ingredientsEn ?? [],
        data.tags ?? [], data.category ?? null, data.isAvailable ?? true, data.isBestSeller ?? false,
        data.isOffer ?? false, Number(data.discount) || 0, Number(data.preparationTime) || 20,
-       Number(data.calories) || 0],
+       Number(data.calories) || 0, Number(data.sortOrder) || 0],
     );
     id = inserted.rows[0].id;
     await syncSizes(tx.query.bind(tx), id, data.sizes);

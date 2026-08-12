@@ -158,6 +158,7 @@ const seedProducts = async (catMap: Record<string, Record<string, string>>): Pro
           discount,
           tags: item.tags,
           isAvailable: true,
+          sortOrder: item.sortOrder ?? 0,
         });
       }
     }
