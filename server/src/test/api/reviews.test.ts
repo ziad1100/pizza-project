@@ -521,6 +521,98 @@ describe('reviews: admin moderation and stats', () => {
   });
 });
 
+describe('reviews: quick meal-card reviews (no order)', () => {
+  it('requires authentication', async () => {
+    const { product } = await setupCatalog();
+    const res = await api.post(`${REVIEWS}/quick`).send({ product: toId(product._id), rating: 5 });
+    expect(res.status).toBe(401);
+  });
+
+  it('publishes instantly and updates the product rating', async () => {
+    const { product } = await setupCatalog();
+    const customer = await createUser();
+    const res = await api
+      .post(`${REVIEWS}/quick`)
+      .set(bearer(customer.id))
+      .send({ product: toId(product._id), rating: 5, comment: 'Tastes amazing' });
+    expect(res.status).toBe(201);
+    expect(res.body.data.status).toBe('published');
+    expect(res.body.data.isVerifiedPurchase).toBe(false);
+    expect(res.body.data.orderId).toBeNull();
+    expect(res.body.data.reviewType).toBe('meal');
+    expect(res.body.data.comment).toBe('Tastes amazing');
+
+    const row = await productsRepo.getById(toId(product._id));
+    expect(row?.rating).toBe(5);
+    expect(row?.reviewsCount).toBe(1);
+
+    const publicList = await api.get(`${REVIEWS}/meal/${toId(product._id)}`);
+    expect(publicList.body.data.items).toHaveLength(1);
+    expect(publicList.body.data.summary).toMatchObject({ total: 1, average: 5, '5': 1 });
+  });
+
+  it('blocks a second quick review for the same meal', async () => {
+    const { product } = await setupCatalog();
+    const customer = await createUser();
+    await api.post(`${REVIEWS}/quick`).set(bearer(customer.id)).send({ product: toId(product._id), rating: 4 });
+    const dup = await api.post(`${REVIEWS}/quick`).set(bearer(customer.id)).send({ product: toId(product._id), rating: 1 });
+    expect(dup.status).toBe(409);
+    const rows = await query<{ n: string }>(
+      `SELECT count(*)::int AS n FROM reviews WHERE "productId" = $1 AND "orderId" IS NULL AND "reviewType" = 'meal'`,
+      [toId(product._id)],
+    );
+    expect(Number(rows[0]?.n ?? 0)).toBe(1);
+  });
+
+  it('still allows a verified order review for the same meal alongside the quick one', async () => {
+    const { product } = await setupCatalog();
+    const customer = await createUser();
+    await api.post(`${REVIEWS}/quick`).set(bearer(customer.id)).send({ product: toId(product._id), rating: 5 });
+    const orderId = await createCompletedOrder(customer.id, toId(product._id));
+    const verified = await api
+      .post(REVIEWS)
+      .set(bearer(customer.id))
+      .send(mealReviewBody(product._id, orderId, { rating: 4 }));
+    expect(verified.status).toBe(201);
+    expect(verified.body.data.isVerifiedPurchase).toBe(true);
+  });
+
+  it('validates the rating and rejects unknown products', async () => {
+    const { product } = await setupCatalog();
+    const customer = await createUser();
+    expect(
+      (await api.post(`${REVIEWS}/quick`).set(bearer(customer.id)).send({ product: toId(product._id), rating: 9 })).status,
+    ).toBe(422);
+    expect(
+      (await api.post(`${REVIEWS}/quick`).set(bearer(customer.id)).send({ rating: 5 })).status,
+    ).toBe(422);
+    const stranger = await createUser();
+    const missing = await api
+      .post(`${REVIEWS}/quick`)
+      .set(bearer(stranger.id))
+      .send({ product: '00000000-0000-0000-0000-000000000000', rating: 5 });
+    expect(missing.status).toBe(404);
+  });
+
+  it('appears in the admin review list for moderation/management', async () => {
+    const { product } = await setupCatalog();
+    const customer = await createUser();
+    const admin = await createUser({ role: 'admin' });
+    await api
+      .post(`${REVIEWS}/quick`)
+      .set(bearer(customer.id))
+      .send({ product: toId(product._id), rating: 3, comment: 'Decent' });
+    const all = await api.get(`${REVIEWS}/admin`).set(bearer(admin.id));
+    expect(all.body.data.total).toBe(1);
+    expect(all.body.data.items[0]).toMatchObject({
+      rating: 3,
+      comment: 'Decent',
+      isVerifiedPurchase: false,
+      orderId: null,
+    });
+  });
+});
+
 describe('reviews: pending orders (smart review prompt)', () => {
   it('requires authentication', async () => {
     expect((await api.get(`${REVIEWS}/pending-orders`)).status).toBe(401);

@@ -42,6 +42,15 @@ export interface ReviewCreatePayload {
 export const createMealReview = (payload: ReviewCreatePayload): Promise<Review> =>
   unwrap(api.post<ApiEnvelope<Review>>('/reviews', payload));
 
+export interface QuickReviewCreatePayload {
+  product: string;
+  rating: number;
+  comment?: string;
+}
+
+export const createQuickReview = (payload: QuickReviewCreatePayload): Promise<Review> =>
+  unwrap(api.post<ApiEnvelope<Review>>('/reviews/quick', payload));
+
 export interface RestaurantReviewCreatePayload {
   orderId: string;
   rating: number;

@@ -8,7 +8,7 @@ export { couponCreateSchema, couponUpdateSchema, couponValidateSchema } from './
 export { bannerCreateSchema, bannerUpdateSchema } from './banner';
 export { galleryCreateSchema, galleryUpdateSchema } from './gallery';
 export { branchCreateSchema, branchUpdateSchema } from './branch';
-export { reviewCreateSchema, reviewUpdateSchema, reviewModerateSchema, restaurantReviewCreateSchema } from './review';
+export { reviewCreateSchema, quickReviewCreateSchema, reviewUpdateSchema, reviewModerateSchema, restaurantReviewCreateSchema } from './review';
 export { contactSchema, newsletterSubscribeSchema, newsletterUnsubscribeSchema } from './contact';
 export { postCreateSchema, postUpdateSchema } from './post';
 export { settingsUpdateSchema } from './settings';

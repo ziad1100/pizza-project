@@ -241,6 +241,41 @@ export const createMeal = async (
   return review;
 };
 
+/**
+ * Inline quick review from a meal card: no order required, published
+ * immediately. One per user + meal (enforced by the partial unique index in
+ * migration 006 for order-less reviews).
+ */
+export const createQuick = async (
+  userId: string,
+  productId: string,
+  rating: number,
+  comment: string,
+): Promise<Record<string, unknown>> => {
+  let reviewId = '';
+  try {
+    await withTransaction(async (tx) => {
+      const inserted = await tx.query<{ id: string }>(
+        `INSERT INTO reviews ("userId", "productId", "reviewType", rating, comment,
+           "isVerifiedPurchase", status)
+         VALUES ($1::uuid, $2::uuid, 'meal', $3, $4, false, 'published')
+         RETURNING id`,
+        [userId, productId, rating, comment],
+      );
+      reviewId = inserted.rows[0].id;
+      await refreshProductRating(productId, (t, p) => tx.query(t, p));
+    });
+  } catch (err) {
+    if ((err as { code?: string })?.code === '23505') {
+      throw new ApiError(409, 'You have already reviewed this meal');
+    }
+    throw err;
+  }
+  const review = await getById(reviewId);
+  if (!review) throw new ApiError(500, 'Review creation failed');
+  return review;
+};
+
 export const createRestaurant = async (
   userId: string,
   orderId: string,

@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import {
   Boxes,
   ChevronRight,
@@ -29,6 +30,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks';
 import { useTheme } from '@/hooks/useTheme';
 import { changeLanguage, type LanguageCode } from '@/i18n';
 import { clearCredentials } from '@/store/slices/authSlice';
+import { adminReviewStats } from '@/api/admin';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -75,6 +77,14 @@ export function AdminLayout() {
   const { theme, toggleTheme } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Pending-review count badge on the sidebar Reviews link (review moderation).
+  const reviewStats = useQuery({
+    queryKey: ['admin', 'review-stats'],
+    queryFn: adminReviewStats,
+    refetchInterval: 60_000,
+  });
+  const pendingReviews = reviewStats.data?.pending ?? 0;
+
   const toggleLanguage = (): void => {
     const next: LanguageCode = i18n.language === 'ar' ? 'en' : 'ar';
     changeLanguage(next);
@@ -110,8 +120,13 @@ export function AdminLayout() {
                     )
                   }
                 >
-                  <Icon className="h-4.5 w-4.5" />
-                  {t(label)}
+                  <Icon className="h-4.5 w-4.5 shrink-0" />
+                  <span className="flex-1 truncate">{t(label)}</span>
+                  {to === '/admin/reviews' && pendingReviews > 0 ? (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-xs font-bold text-white">
+                      {pendingReviews > 99 ? '99+' : pendingReviews}
+                    </span>
+                  ) : null}
                 </NavLink>
               ))}
             </div>

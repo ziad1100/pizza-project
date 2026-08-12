@@ -7,6 +7,7 @@ import { cached, invalidateCache } from '../middlewares/cache';
 import { reviewsLimiter } from '../middlewares/rateLimiter';
 import { ROLES } from '../constants';
 import {
+  quickReviewCreateSchema,
   restaurantReviewCreateSchema,
   reviewCreateSchema,
   reviewModerateSchema,
@@ -59,6 +60,7 @@ router.patch(
   review.moderate,
 );
 
+router.post('/quick', requireAuth, reviewsLimiter, zodBody(quickReviewCreateSchema), invalidateCache('products', 'reviews'), review.createQuick);
 router.post('/', requireAuth, reviewsLimiter, zodBody(reviewCreateSchema), invalidateCache('products', 'reviews'), review.create);
 router.post('/restaurant', requireAuth, reviewsLimiter, zodBody(restaurantReviewCreateSchema), invalidateCache('reviews'), review.createRestaurant);
 router.patch('/:id', requireAuth, reviewsLimiter, zodBody(reviewUpdateSchema), invalidateCache('products', 'reviews'), review.update);

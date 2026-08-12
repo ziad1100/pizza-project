@@ -133,10 +133,26 @@ export const adminList = async (
   return toPage(rows, limit);
 };
 
+// Best sellers are grouped by section so pizzas lead, then crepes, then pastas,
+// and everything else follows — each group still ordered by rating.
+// Section slugs are stable (seed: `section-<english-name>`).
+const BEST_SELLER_GROUP_ORDER = `
+  CASE (
+    SELECT s.slug FROM categories sub JOIN categories s ON s.id = sub."parentId"
+    WHERE sub.id = p."categoryId"
+  )
+    WHEN 'section-oriental-pizza' THEN 0
+    WHEN 'section-italian-pizza' THEN 0
+    WHEN 'section-crepe' THEN 1
+    WHEN 'section-sweet-crepe' THEN 1
+    WHEN 'section-pasta' THEN 2
+    ELSE 3
+  END`;
+
 export const bestSellers = async (): Promise<Record<string, unknown>[]> =>
   (await query(`SELECT ${PUBLIC_COLS} FROM products p
     WHERE p."isAvailable" = true AND p."isBestSeller" = true
-    ORDER BY p.rating DESC, p."createdAt" DESC LIMIT 10`)) as Record<string, unknown>[];
+    ORDER BY ${BEST_SELLER_GROUP_ORDER} ASC, p.rating DESC, p."createdAt" DESC LIMIT 10`)) as Record<string, unknown>[];
 
 export const offers = async (): Promise<Record<string, unknown>[]> =>
   (await query(`SELECT ${PUBLIC_COLS} FROM products p

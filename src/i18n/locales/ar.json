@@ -522,6 +522,9 @@
     "promptTitle": "إيه رأيك في طلبك؟ 🍕",
     "promptSubtitle": "طلبك اتوصّل — قيّم أطباقك وتجربتك عشان نقدر نطوّر دايماً.",
     "promptCta": "قيّم الآن",
-    "promptDismiss": "بعدين"
+    "promptDismiss": "بعدين",
+    "loginToRate": "سجّل الدخول لتقييم هذا الطبق",
+    "alreadyReviewed": "لقد قمت بتقييم هذا الطبق بالفعل",
+    "published": "تقييمك منشور الآن"
   }
 }

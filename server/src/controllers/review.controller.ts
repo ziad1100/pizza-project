@@ -85,6 +85,17 @@ export const adminRemove = asyncHandler(async (req: Request, res: Response) => {
   }
 });
 
+export const createQuick = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { product, rating, comment } = req.body;
+  if (!(await productsRepo.exists(product))) throw new ApiError(404, 'Product not found');
+  try {
+    const review = await reviewsRepo.createQuick(req.user!.id, product, rating, comment ?? '');
+    res.status(201).json(new ApiResponse(201, review, 'Review published'));
+  } catch (err) {
+    throw apiErrorFromPg(err);
+  }
+});
+
 export const create = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { product, orderId, rating, comment } = req.body;
   if (!(await productsRepo.exists(product))) throw new ApiError(404, 'Product not found');

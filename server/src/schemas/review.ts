@@ -18,6 +18,12 @@ export const reviewCreateSchema = z.object({
   comment,
 });
 
+export const quickReviewCreateSchema = z.object({
+  product: objectId('Product is required'),
+  rating,
+  comment,
+});
+
 export const reviewUpdateSchema = z
   .object({
     rating,

@@ -522,6 +522,9 @@
     "promptTitle": "How was your order? 🍕",
     "promptSubtitle": "Your order was delivered — rate your meals and your experience so we can keep improving.",
     "promptCta": "Rate now",
-    "promptDismiss": "Maybe later"
+    "promptDismiss": "Maybe later",
+    "loginToRate": "Log in to rate this meal",
+    "alreadyReviewed": "You have already reviewed this meal",
+    "published": "Your rating is live"
   }
 }

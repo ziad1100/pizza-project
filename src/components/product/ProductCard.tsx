@@ -8,6 +8,7 @@ import { addLine, removeLine, updateQty } from '@/store/slices/cartSlice';
 import { toggle as toggleWishlist } from '@/store/slices/wishlistSlice';
 import { Badge } from '@/components/ui/Card';
 import { StarRating } from '@/components/review/StarRating';
+import { QuickReview } from '@/components/review/QuickReview';
 import { cn, formatPrice } from '@/lib/utils';
 
 export function ProductCard({ product }: { product: Product }) {
@@ -56,63 +57,65 @@ export function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <Link
-      to={`/product/${product.slug}`}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-night-800 bg-night-900 transition-all duration-300 hover:-translate-y-1 hover:border-night-600 hover:shadow-xl hover:shadow-night-950"
-    >
-      <div className="relative aspect-4/3 overflow-hidden bg-night-800">
-        {image ? (
-          <img
-            src={image}
-            alt={i18n.language === 'ar' ? product.name : product.nameEn}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <ShoppingBag className="h-12 w-12 text-night-600" />
-          </div>
-        )}
-        {product.isBestSeller ? (
-          <Badge tone="brand" className="absolute inset-s-3 top-3 shadow-lg">
-            <Flame className="h-3 w-3" />
-            {commonT('menu.bestSeller')}
-          </Badge>
-        ) : null}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            dispatch(toggleWishlist(product._id));
-          }}
-          className={cn(
-            'absolute inset-e-3 top-3 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur transition-colors',
-            isWished ? 'bg-brand-600 text-white' : 'bg-night-950/70 text-night-200 hover:text-brand-500',
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-night-800 bg-night-900 transition-all duration-300 hover:-translate-y-1 hover:border-night-600 hover:shadow-xl hover:shadow-night-950">
+      <Link to={`/product/${product.slug}`} className="flex flex-1 flex-col">
+        <div className="relative aspect-4/3 overflow-hidden bg-night-800">
+          {image ? (
+            <img
+              src={image}
+              alt={i18n.language === 'ar' ? product.name : product.nameEn}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <ShoppingBag className="h-12 w-12 text-night-600" />
+            </div>
           )}
-          aria-label="wishlist"
-        >
-          <Heart className={cn('h-4.5 w-4.5', isWished && 'fill-current')} />
-        </button>
-      </div>
+          {product.isBestSeller ? (
+            <Badge tone="brand" className="absolute inset-s-3 top-3 shadow-lg">
+              <Flame className="h-3 w-3" />
+              {commonT('menu.bestSeller')}
+            </Badge>
+          ) : null}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              dispatch(toggleWishlist(product._id));
+            }}
+            className={cn(
+              'absolute inset-e-3 top-3 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur transition-colors',
+              isWished ? 'bg-brand-600 text-white' : 'bg-night-950/70 text-night-200 hover:text-brand-500',
+            )}
+            aria-label="wishlist"
+          >
+            <Heart className={cn('h-4.5 w-4.5', isWished && 'fill-current')} />
+          </button>
+        </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="line-clamp-1 font-bold text-night-50 transition-colors group-hover:text-brand-500">
-          {i18n.language === 'ar' ? product.name : product.nameEn || product.name}
-        </h3>
-        {product.reviewsCount > 0 ? (
-          <div className="flex items-center gap-1.5">
-            <StarRating value={Math.round(product.rating)} readOnly size="sm" ariaLabel={commonT('review.averageRating')} />
-            <span className="text-xs font-bold text-night-300" dir="ltr">
-              {product.rating.toFixed(1)}
-            </span>
-            <span className="text-xs text-night-500">{commonT('review.reviews', { count: product.reviewsCount })}</span>
-          </div>
-        ) : (
-          <p className="text-xs text-night-500">{commonT('review.noReviews')}</p>
-        )}
-        <p className="line-clamp-1 text-sm text-night-400">
-          {i18n.language === 'ar' ? product.description : product.descriptionEn || product.description}
-        </p>
-        <div className="mt-auto flex items-center justify-between pt-2">
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <h3 className="line-clamp-1 font-bold text-night-50 transition-colors group-hover:text-brand-500">
+            {i18n.language === 'ar' ? product.name : product.nameEn || product.name}
+          </h3>
+          {product.reviewsCount > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <StarRating value={Math.round(product.rating)} readOnly size="sm" ariaLabel={commonT('review.averageRating')} />
+              <span className="text-xs font-bold text-night-300" dir="ltr">
+                {product.rating.toFixed(1)}
+              </span>
+              <span className="text-xs text-night-500">{commonT('review.reviews', { count: product.reviewsCount })}</span>
+            </div>
+          ) : (
+            <p className="text-xs text-night-500">{commonT('review.noReviews')}</p>
+          )}
+          <p className="line-clamp-1 text-sm text-night-400">
+            {i18n.language === 'ar' ? product.description : product.descriptionEn || product.description}
+          </p>
+        </div>
+      </Link>
+
+      <div className="px-4 pb-4">
+        <div className="flex items-center justify-between pt-2">
           <div>
             <span className="text-base font-extrabold text-brand-500">
               {formatPrice(price, i18n.language)}
@@ -121,10 +124,7 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
           <div className="flex items-center gap-1.5">
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                handleSub();
-              }}
+              onClick={handleSub}
               disabled={inCartQty === 0}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-night-700 text-night-300 transition-colors hover:border-night-500 hover:text-night-50 disabled:cursor-not-allowed disabled:opacity-30"
               aria-label={commonT('cart.remove')}
@@ -132,10 +132,7 @@ export function ProductCard({ product }: { product: Product }) {
               <Minus className="h-5 w-5" />
             </button>
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                handleAdd();
-              }}
+              onClick={handleAdd}
               className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white transition-colors hover:bg-brand-700"
               aria-label={commonT('menu.addToCart')}
             >
@@ -143,7 +140,11 @@ export function ProductCard({ product }: { product: Product }) {
             </button>
           </div>
         </div>
+
+        <div className="mt-3">
+          <QuickReview productId={product._id} />
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }
