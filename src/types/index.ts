@@ -367,6 +367,17 @@ export interface Banner {
   isActive: boolean;
 }
 
+export interface GalleryImage {
+  _id: string;
+  title: string;
+  titleEn: string;
+  image: string;
+  order: number;
+  isVisible: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PeriodMetrics {
   revenue: number;
   orders: number;

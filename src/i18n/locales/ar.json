@@ -8,6 +8,8 @@
     "no": "لا",
     "save": "حفظ",
     "cancel": "إلغاء",
+    "moveUp": "تحريك لأعلى",
+    "moveDown": "تحريك لأسفل",
     "delete": "حذف",
     "edit": "تعديل",
     "add": "إضافة",
@@ -58,7 +60,15 @@
       "mozzarella": "موتزريلا",
       "vegetables": "خضروات",
       "strips": "استربس",
-      "beef": "لحمه"
+      "beef": "لحمه",
+      "pasta": "باستا فراخ",
+      "tagine": "طاجن فراخ",
+      "hawawshi": "حواوشي فراخ",
+      "beefRocketRoll": "رول بيف",
+      "chocolateBanana": "شيكولاتة وموز",
+      "lotus": "لوتس",
+      "potato": "بطاطس شيدر",
+      "kofta": "كفتة"
     }
   },
   "hero": {
@@ -457,6 +467,7 @@
       "offers": "العروض",
       "coupons": "أكواد الخصم",
       "banners": "البنرات",
+      "gallery": "معرض الصور",
       "commerce": "التجارة",
       "orders": "الطلبات",
       "reviews": "التقييمات",

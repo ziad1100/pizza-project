@@ -10,6 +10,7 @@ const TTL_SECONDS = {
   zones: 300,
   posts: 60,
   banners: 60,
+  gallery: 300,
   dashboard: 60,
   reviews: 60,
 } as const;

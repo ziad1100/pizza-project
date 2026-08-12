@@ -9,6 +9,7 @@ import type {
   Coupon,
   DashboardData,
   DayStats,
+  GalleryImage,
   Offer,
   Order,
   OrderStatus,
@@ -254,6 +255,21 @@ export const adminReviewStats = (): Promise<AdminReviewStats> =>
 
 export const deleteReview = (id: string): Promise<null> =>
   unwrap(api.delete<ApiEnvelope<null>>(`/reviews/admin/${id}`));
+
+export const adminListGallery = (): Promise<GalleryImage[]> =>
+  unwrap(api.get<ApiEnvelope<GalleryImage[]>>('/gallery'));
+
+export const createGalleryImage = (payload: Partial<GalleryImage>): Promise<GalleryImage> =>
+  unwrap(api.post<ApiEnvelope<GalleryImage>>('/gallery', payload));
+
+export const updateGalleryImage = (id: string, payload: Partial<GalleryImage>): Promise<GalleryImage> =>
+  unwrap(api.patch<ApiEnvelope<GalleryImage>>(`/gallery/${id}`, payload));
+
+export const toggleGalleryImage = (id: string): Promise<GalleryImage> =>
+  unwrap(api.patch<ApiEnvelope<GalleryImage>>(`/gallery/${id}/toggle`));
+
+export const deleteGalleryImage = (id: string): Promise<null> =>
+  unwrap(api.delete<ApiEnvelope<null>>(`/gallery/${id}`));
 
 export const uploadImage = async (file: File): Promise<string> => {
   const form = new FormData();

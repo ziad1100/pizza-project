@@ -8,6 +8,8 @@
     "no": "No",
     "save": "Save",
     "cancel": "Cancel",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
     "delete": "Delete",
     "edit": "Edit",
     "add": "Add",
@@ -58,7 +60,15 @@
       "mozzarella": "Mozzarella",
       "vegetables": "Vegetables",
       "strips": "Strips",
-      "beef": "Beef"
+      "beef": "Beef",
+      "pasta": "Chicken Pasta",
+      "tagine": "Chicken Tagine",
+      "hawawshi": "Chicken Hawawshi",
+      "beefRocketRoll": "Beef Rocket Roll",
+      "chocolateBanana": "Chocolate Banana",
+      "lotus": "Lotus",
+      "potato": "Cheddar Potato",
+      "kofta": "Kofta"
     }
   },
   "hero": {
@@ -457,6 +467,7 @@
       "offers": "Offers",
       "coupons": "Coupons",
       "banners": "Banners",
+      "gallery": "Gallery",
       "commerce": "Commerce",
       "orders": "Orders",
       "reviews": "Reviews",

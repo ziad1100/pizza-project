@@ -19,7 +19,8 @@ import * as cartsRepo from '../db/carts';
 import { upsertSetting } from '../db/settings';
 import { query, row } from '../db';
 import { DEFAULT_SETTINGS, ORDER_STATUS } from '../constants';
-import { seedSections, seedExtras, bestSellerNames, offerNames, type SeedItem, type SeedSub } from './seedData';
+import { seedSections, seedExtras, bestSellerNames, offerNames, galleryImagesSeed, type SeedItem, type SeedSub } from './seedData';
+import * as galleryRepo from '../db/gallery';
 
 const slugifyEn = (text: string): string =>
   slugify(text, { lower: true, strict: true }) || `item-${Date.now().toString(36)}`;
@@ -46,7 +47,7 @@ const clearTables = async (): Promise<void> => {
        product_sizes, product_extras, reviews, orders, carts, wishlists, offers,
        coupons, banners, branches, delivery_zones, posts, contacts, newsletters,
        notifications, categories, products, activity_logs, analytics, permissions,
-       roles, users, settings
+       roles, users, settings, gallery_images
      RESTART IDENTITY CASCADE`,
   );
 };
@@ -305,6 +306,13 @@ const seedCommerce = async (): Promise<void> => {
   console.log('[seed] commerce data created');
 };
 
+const seedGallery = async (): Promise<void> => {
+  for (const [i, g] of galleryImagesSeed.entries()) {
+    await galleryRepo.create({ title: g.ar, titleEn: g.en, image: g.image, order: i });
+  }
+  console.log(`[seed] gallery images created (${galleryImagesSeed.length})`);
+};
+
 const seedSettings = async (): Promise<void> => {
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
     await upsertSetting(key, value);
@@ -496,6 +504,7 @@ const run = async (): Promise<void> => {
   await seedProducts(catMap);
   await seedCommerce();
   await repairOfferBanners();
+  await seedGallery();
   await seedSettings();
   await seedReviews(userIds);
   await seedDemoOrder(userIds);

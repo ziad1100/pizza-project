@@ -128,7 +128,7 @@ export const seedSections: SeedSection[] = [
           { ar: 'بيتزا شيش', en: 'Shish Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'شيش طاووق', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/sheesh-chicken.jpg', sortOrder: 13 },
           { ar: 'بيتزا تشيكن رانش', en: 'Chicken Ranch Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص رانش'], tags: [...chickenTags, ...cheeseTags], prices: [105, 135, 165], image: '/images/products/chicken-ranch-chicken.jpg', sortOrder: 14 },
           { ar: 'بيتزا تشيكن باربيكيو', en: 'BBQ Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص باربيكيو'], tags: [...chickenTags, ...cheeseTags], prices: [95, 125, 165], image: '/images/products/chicken-bbq-chicken.jpg', sortOrder: 15 },
-          { ar: 'بيتزا تشيكن كرانشي', en: 'Crunchy Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرانشي'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], image: '/images/products/crunchy-chicken-crepe-chicken-crepe.jpg', sortOrder: 16 },
+          { ar: 'بيتزا تشيكن كرانشي', en: 'Crunchy Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرانشي'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], image: '/images/products/crispy-chicken-chicken.jpg', sortOrder: 16 },
           { ar: 'بيتزا كرسبي', en: 'Crispy Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرسبي'], tags: [...chickenTags, ...cheeseTags], prices: [95, 125, 155], image: '/images/products/crispy-chicken.jpg', sortOrder: 17 },
           { ar: 'بيتزا فراخ كرسبي', en: 'Crispy Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرسبي'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], image: '/images/products/crispy-chicken-chicken.jpg', sortOrder: 18 },
           { ar: 'بيتزا تركي مدخن', en: 'Smoked Turkey Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن'], tags: [...chickenTags, ...cheeseTags], prices: [90, 120, 140], image: '/images/products/smoked-turkey-chicken.jpg', sortOrder: 19 },
@@ -390,4 +390,49 @@ export const bestSellerNames = [
 export const offerNames = [
   'مكس جبن', 'سجق', 'فاهيتا فراخ', 'مكس فراخ', 'طاجن مكس فراخ',
   'كاتز', 'لوتس', 'شيكولاتة موز', 'علبة سوبر', 'كفته',
+];
+
+export interface SeedGalleryImage {
+  ar: string;
+  en: string;
+  image: string;
+}
+
+// Curated public gallery — real dish photos from public/images/products,
+// intentionally varied across the menu (pizzas, crepes, feteer, rocket rolls,
+// hawawshi, tagine, pasta, seafood, meat and desserts). Seeded into the
+// gallery_images table; admins can then reorder/hide/replace from the dashboard.
+export const galleryImagesSeed: SeedGalleryImage[] = [
+  // Pizzas
+  { ar: 'بيتزا مارجريتا', en: 'Margherita Pizza', image: '/images/products/margherita-cheese.jpg' },
+  { ar: 'بيتزا فراخ باربيكيو', en: 'BBQ Chicken Pizza', image: '/images/products/chicken-bbq-chicken.jpg' },
+  { ar: 'بيتزا فاهيتا', en: 'Fajita Pizza', image: '/images/products/fajita-chicken.jpg' },
+  { ar: 'بيتزا خضروات', en: 'Vegetable Pizza', image: '/images/products/vegetables-cheese.jpg' },
+  // Chicken & grilled
+  { ar: 'استربس فراخ', en: 'Chicken Strips', image: '/images/products/strips-chicken.jpg' },
+  { ar: 'كفتة مشوية', en: 'Grilled Kofta', image: '/images/products/kofta-meat.jpg' },
+  { ar: 'حواوشي فراخ', en: 'Chicken Hawawshi', image: '/images/products/chicken-hawawshi-hawawshi.jpg' },
+  { ar: 'طاجن فراخ', en: 'Chicken Tagine', image: '/images/products/chicken-tagine-tagine.jpg' },
+  // Seafood
+  { ar: 'جمبري', en: 'Shrimp', image: '/images/products/shrimp-seafood.jpg' },
+  { ar: 'تونة', en: 'Tuna', image: '/images/products/tuna-seafood.jpg' },
+  // Cheese & sides
+  { ar: 'موتزريلا', en: 'Mozzarella', image: '/images/products/mozzarella-cheese.jpg' },
+  { ar: 'بطاطس شيدر', en: 'Cheddar Potato', image: '/images/products/cheddar-potato-appetizers.jpg' },
+  // Pasta
+  { ar: 'باستا فراخ', en: 'Chicken Pasta', image: '/images/products/chicken-pasta-pasta.jpg' },
+  // Meat & mixes
+  { ar: 'ميكس لحوم', en: 'Meat Mix', image: '/images/products/meat-mix-mix.jpg' },
+  { ar: 'لحمة', en: 'Beef', image: '/images/products/beef-meat.jpg' },
+  // Egyptian breads & rolls
+  { ar: 'فطير مشلتت', en: 'Feteer Meshaltet', image: '/images/products/meshaltet-butter-meshaltet.jpg' },
+  { ar: 'صاروخ سجق', en: 'Sausage Rocket Roll', image: '/images/products/sausage-kiri-rocket-roll.jpg' },
+  { ar: 'صاروخ لحمة', en: 'Beef Rocket Roll', image: '/images/products/beef-rocket-roll.jpg' },
+  // Sweet feteer & desserts
+  { ar: 'كنافة', en: 'Kunafa', image: '/images/products/kunafa-sweet-feteer.jpg' },
+  { ar: 'بسبوسة', en: 'Basbousa', image: '/images/products/basbousa-kunafa-sweet-feteer.jpg' },
+  { ar: 'فطير شيكولاتة أوريو', en: 'Oreo Chocolate Feteer', image: '/images/products/chocolate-oreo-sweet-feteer.jpg' },
+  { ar: 'فطير شيكولاتة بالموز', en: 'Chocolate Banana Feteer', image: '/images/products/chocolate-banana-sweet-feteer.jpg' },
+  { ar: 'فطير لوتس', en: 'Lotus Feteer', image: '/images/products/lotus-sweet-feteer.jpg' },
+  { ar: 'فطير شيكولاتة بيضاء', en: 'White Chocolate Feteer', image: '/images/products/white-chocolate-sweet-feteer.jpg' },
 ];

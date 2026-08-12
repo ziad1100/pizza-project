@@ -6,6 +6,7 @@ import {
   ChevronRight,
   FileText,
   Image as ImageIcon,
+  Images,
   Languages,
   LayoutDashboard,
   LogOut,
@@ -44,6 +45,7 @@ const navGroups: { label: string; items: { to: string; icon: typeof LayoutDashbo
       { to: '/admin/offers', icon: Tag, label: 'admin.nav.offers' },
       { to: '/admin/coupons', icon: Percent, label: 'admin.nav.coupons' },
       { to: '/admin/banners', icon: ImageIcon, label: 'admin.nav.banners' },
+      { to: '/admin/gallery', icon: Images, label: 'admin.nav.gallery' },
     ],
   },
   {
