@@ -8,7 +8,6 @@ import { addLine, removeLine, updateQty } from '@/store/slices/cartSlice';
 import { toggle as toggleWishlist } from '@/store/slices/wishlistSlice';
 import { Badge } from '@/components/ui/Card';
 import { StarRating } from '@/components/review/StarRating';
-import { QuickReview } from '@/components/review/QuickReview';
 import { cn, formatPrice } from '@/lib/utils';
 
 export function ProductCard({ product }: { product: Product }) {
@@ -57,13 +56,13 @@ export function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-night-800 bg-night-900 transition-all duration-300 hover:-translate-y-1 hover:border-night-600 hover:shadow-xl hover:shadow-night-950">
+    <div className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-night-800 bg-night-900 transition-all duration-300 hover:-translate-y-1 hover:border-night-600 hover:shadow-xl hover:shadow-night-950">
       <Link to={`/product/${product.slug}`} className="flex flex-1 flex-col">
         <div className="relative aspect-4/3 overflow-hidden bg-night-800">
           {image ? (
             <img
               src={image}
-              alt={i18n.language === 'ar' ? product.name : product.nameEn}
+              alt={i18n.language === 'ar' ? product.name : product.nameEn || product.name}
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -78,6 +77,14 @@ export function ProductCard({ product }: { product: Product }) {
               {commonT('menu.bestSeller')}
             </Badge>
           ) : null}
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 flex items-center justify-center bg-night-950/0 opacity-0 transition-all duration-300 group-hover:bg-night-950/30 group-hover:opacity-100"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm">
+              <ShoppingBag className="h-5 w-5" />
+            </span>
+          </span>
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -141,9 +148,6 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         </div>
 
-        <div className="mt-3">
-          <QuickReview productId={product._id} />
-        </div>
       </div>
     </div>
   );

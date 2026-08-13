@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { CalendarClock, Percent, Tag } from 'lucide-react';
+import { CalendarClock, ChevronLeft, Percent, Tag } from 'lucide-react';
 import type { OfferWithProducts } from '@/api/offers';
-import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Card';
 import { offerThemeClasses } from '@/components/offer/offerTheme';
 import { cn, formatPrice } from '@/lib/utils';
@@ -35,10 +34,18 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
   const remaining = offer.products.length - previewImages.length;
   const fallbackBanner = previewImages.length === 0 ? offer.banner : '';
 
+  // Whole card is a link so clicking anywhere on the offer opens its detail page.
+  // The bottom CTA is a styled span (a real button can't be nested inside a link).
+  const ctaStyles =
+    offer.theme === 'gold'
+      ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-lg shadow-brand-600/25'
+      : 'bg-gold-500 text-night-950 hover:bg-gold-400 shadow-lg shadow-gold-500/25';
+
   return (
-    <div
+    <Link
+      to={`/offers/${offer._id}`}
       className={cn(
-        'relative flex flex-col overflow-hidden rounded-3xl border bg-gradient-to-br p-7 shadow-xl md:p-8',
+        'group relative flex flex-col overflow-hidden rounded-3xl border bg-gradient-to-br p-7 shadow-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl md:p-8',
         offerThemeClasses(offer.theme),
       )}
     >
@@ -62,7 +69,9 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
         </span>
       </div>
 
-      <h3 className="relative mt-5 text-2xl font-extrabold text-white">{title}</h3>
+      <h3 className="relative mt-5 text-2xl font-extrabold text-white group-hover:underline">
+        {title}
+      </h3>
       {description ? (
         <p className="relative mt-2 line-clamp-2 text-sm leading-relaxed text-white/80">{description}</p>
       ) : null}
@@ -111,12 +120,16 @@ export function OfferCard({ offer }: { offer: OfferWithProducts }) {
       )}
 
       <div className="relative mt-auto pt-7">
-        <Link to={`/offers/${offer._id}`}>
-          <Button variant={offer.theme === 'gold' ? 'primary' : 'gold'} className="w-full">
-            {t('offers.viewItems')}
-          </Button>
-        </Link>
+        <span
+          className={cn(
+            'inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold transition-colors duration-200',
+            ctaStyles,
+          )}
+        >
+          {t('offers.viewItems')}
+          <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
+        </span>
       </div>
-    </div>
+    </Link>
   );
 }

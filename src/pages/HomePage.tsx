@@ -64,13 +64,13 @@ export function HomePage() {
             </div>
             <div className="mt-12 grid max-w-md grid-cols-3 gap-4">
               <div className="text-center">
-                <p className="text-3xl font-extrabold text-gold-500">
+                <div className="text-3xl font-extrabold text-gold-500">
                   {productsCount.isLoading ? (
                     <Skeleton className="mx-auto inline-block h-9 w-12 align-middle" />
                   ) : (
                     productsCount.data ?? 0
                   )}
-                </p>
+                </div>
                 <p className="mt-1 text-sm text-night-400">{t('hero.statItems')}</p>
               </div>
               <div className="text-center">
@@ -80,14 +80,14 @@ export function HomePage() {
                 <p className="mt-1 text-sm text-night-400">{t('hero.statDelivery')}</p>
               </div>
               <div className="text-center">
-                <p className="flex items-center justify-center gap-1 text-3xl font-extrabold text-gold-500">
+                <div className="flex items-center justify-center gap-1 text-3xl font-extrabold text-gold-500">
                   <Star className="h-6 w-6 fill-current" />
                   {restaurantRating.isLoading ? (
                     <Skeleton className="inline-block h-9 w-12 align-middle" />
                   ) : (
                     (restaurantRating.data?.average ?? 0).toFixed(1)
                   )}
-                </p>
+                </div>
                 <p className="mt-1 text-sm text-night-400">{t('hero.statRating')}</p>
               </div>
             </div>
