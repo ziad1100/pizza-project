@@ -240,17 +240,26 @@ npm start                # NODE_ENV=production, reads PORT/DATABASE_URL/...
 - [x] Health endpoints do not leak configuration
 - [x] Backups configured + verified restore procedure
 
-## 14. Render Blueprint
+## 14. Render Blueprint (free tier)
 
-- The repo ships `render.yaml` (Render Blueprint). One command provisions the whole
-  backend stack from the existing Dockerfile: production PostgreSQL (private network),
-  Redis, the API Web Service (health check `/health`), the BullMQ worker
-  (`node server/dist/worker.js`) and a one-off menu seed job (`node server/dist/seed.js`).
-- `DATABASE_URL` / `REDIS_URL` are injected automatically via `fromDatabase` /
-  `fromRedis` (internal, never public). Every secret is declared with `sync: false`
-  and set in the Render dashboard after launch — nothing sensitive lives in the file.
-- Plans: `free` web services sleep after ~15 min idle; free Postgres expires after
-  30 days; Redis (Key Value), workers and jobs require a paid plan.
+- The repo ships `render.yaml` (Render Blueprint) describing the **free-tier-only**
+  backend stack from the existing Dockerfile:
+  - production PostgreSQL (`plan: free`, private network — `ipAllowList: []`),
+  - the API Web Service (`plan: free`, Docker, health check `/health`).
+- **No paid resources are defined**: no Redis (Key Value), no background worker, no
+  one-off job. Without Redis the app is fully functional — cache is best-effort,
+  emails send inline, `/health/ready` reports `redis: disabled`. Only the BullMQ
+  worker (async email + analytics rollup) is unavailable on the free tier.
+- `DATABASE_URL` is injected via `fromDatabase` (internal, never public). Every
+  secret is declared with `sync: false` and set after launch — nothing sensitive
+  lives in the file.
+- The menu seed runs as the service's **Start Command**
+  (`sh -c "node server/dist/seed.js && node server/dist/server.js"`) instead of a
+  paid one-off job. In production the seed is safe and idempotent: it applies
+  migrations, seeds the real menu/catalog, and skips on subsequent boots (verified
+  ~10 s on a fresh DB). `SEED_RESET=1` is hard-blocked under `NODE_ENV=production`.
+- Free-plan limits: web services sleep after ~15 min idle (cold start on next
+  request); free Postgres expires after 30 days.
 
 ## 15. Manual steps (cannot be done from the repo)
 
