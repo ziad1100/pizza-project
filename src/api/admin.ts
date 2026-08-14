@@ -209,6 +209,9 @@ export const getDashboardDay = (date: string): Promise<DayStats> =>
 export const refreshDashboard = (): Promise<{ ok: boolean }> =>
   unwrap(api.post<ApiEnvelope<{ ok: boolean }>>('/analytics/refresh'));
 
+export const clearDashboardStats = (): Promise<{ ok: boolean }> =>
+  unwrap(api.post<ApiEnvelope<{ ok: boolean }>>('/analytics/clear'));
+
 export const exportDashboard = async (date?: string, period = 'today'): Promise<{ blob: Blob; filename: string }> => {
   const res = await api.get<Blob>('/analytics/export', {
     params: { date: date || undefined, period },

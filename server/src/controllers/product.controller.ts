@@ -24,7 +24,9 @@ interface ListQuery {
 export const listProducts = asyncHandler(async (req: Request, res: Response) => {
   const q = req.query as unknown as ListQuery;
   const page = Math.max(1, Number(q.page) || 1);
-  const limit = Math.min(50, Math.max(1, Number(q.limit) || 12));
+  // Cap generous enough for the whole catalog in one request — the menu page
+  // fetches everything once and groups/sorts client-side (no N+1 requests).
+  const limit = Math.min(300, Math.max(1, Number(q.limit) || 12));
   try {
     const result = await productsRepo.listProducts(
       {

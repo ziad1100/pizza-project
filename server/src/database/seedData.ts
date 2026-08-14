@@ -4,10 +4,12 @@
 // map to small+large (ascending); three-column ([A,B,C]) map to small/medium/large
 // (ascending). Arabic names are kept as the primary name; English names are
 // adopted verbatim from the JSON.
-// Every product's dish photo lives in public/images/products. The default URL
-// is derived from the English name + sub-section (see seed.ts imageFor());
-// "image" overrides that for items that reuse an existing legacy photo
-// (see scripts/menu-photos.mjs REUSE_MAP -> scripts/menu-photo-map.json).
+// Every product gets a real dish photo from public/images/products. The seed
+// derives the filename from the product's English name + sub-section
+// (`<en>-<sub>.jpg`, see seed.ts imageFor()); the files are provisioned by
+// scripts/gen-dish-photo-plan.ts + scripts/download-dish-photos*.mjs from
+// commercial-license (CC0/CC BY/CC BY-SA/PD) sources. The curated gallery
+// (galleryImagesSeed below) keeps its own real photos in the same folder.
 
 export interface SeedItem {
   ar: string;
@@ -15,7 +17,6 @@ export interface SeedItem {
   ingredients?: string[];
   tags: string[];
   prices: [number | null, number | null, number | null];
-  image?: string;
   // Display order within the section (Egyptian-priority menu order). Falls back to
   // insertion order when unset.
   sortOrder?: number;
@@ -31,6 +32,10 @@ export interface SeedSection {
   ar: string;
   en: string;
   icon: string;
+  // Display order across the menu (Egyptian menu priority: pizzas first, then
+  // crepes, savories, and sweets last). The customer menu is always rendered in
+  // this order and the admin can reorder sections from the dashboard.
+  order: number;
   subs: SeedSub[];
 }
 
@@ -56,61 +61,62 @@ export const seedSections: SeedSection[] = [
     ar: 'بيتزا شرقي',
     en: 'Oriental Pizza',
     icon: 'pizza',
+    order: 0,
     subs: [
       {
         ar: 'الفراخ',
         en: 'Chicken',
         items: [
-          { ar: 'بيتزا فراخ', en: 'Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/chicken-chicken.jpg', sortOrder: 4 },
-          { ar: 'بيتزا تشيكن رانش', en: 'Chicken Ranch Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص رانش'], tags: [...chickenTags, ...cheeseTags], prices: [105, 135, 160], image: '/images/products/chicken-ranch-chicken.jpg', sortOrder: 16 },
-          { ar: 'بيتزا تشيكن باربيكيو', en: 'BBQ Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص باربيكيو'], tags: [...chickenTags, ...cheeseTags], prices: [105, 135, 160], image: '/images/products/chicken-bbq-chicken.jpg', sortOrder: 17 },
-          { ar: 'بيتزا تركي مدخن', en: 'Smoked Turkey Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/smoked-turkey-chicken.jpg', sortOrder: 18 },
-          { ar: 'بيتزا كرسبي', en: 'Crispy Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرسبي'], tags: [...chickenTags, ...cheeseTags], prices: [90, 110, 140], image: '/images/products/crispy-chicken.jpg', sortOrder: 5 },
-          { ar: 'بيتزا شيش', en: 'Shish Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'شيش طاووق', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 125, 160], image: '/images/products/sheesh-chicken.jpg', sortOrder: 15 },
-          { ar: 'بيتزا فاهيتا', en: 'Fajita Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ فاهيتا', 'فلفل ملون', 'بصل'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/fajita-chicken.jpg', sortOrder: 19 },
-          { ar: 'بيتزا استربس', en: 'Chicken Strips Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'استربس فراخ'], tags: [...chickenTags, ...cheeseTags], prices: [95, 120, 160], image: '/images/products/strips-chicken.jpg', sortOrder: 6 },
+          { ar: 'بيتزا فراخ', en: 'Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 4 },
+          { ar: 'بيتزا تشيكن رانش', en: 'Chicken Ranch Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص رانش'], tags: [...chickenTags, ...cheeseTags], prices: [105, 135, 160], sortOrder: 16 },
+          { ar: 'بيتزا تشيكن باربيكيو', en: 'BBQ Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص باربيكيو'], tags: [...chickenTags, ...cheeseTags], prices: [105, 135, 160], sortOrder: 17 },
+          { ar: 'بيتزا تركي مدخن', en: 'Smoked Turkey Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 18 },
+          { ar: 'بيتزا كرسبي', en: 'Crispy Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرسبي'], tags: [...chickenTags, ...cheeseTags], prices: [90, 110, 140], sortOrder: 5 },
+          { ar: 'بيتزا شيش', en: 'Shish Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'شيش طاووق', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 125, 160], sortOrder: 15 },
+          { ar: 'بيتزا فاهيتا', en: 'Fajita Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ فاهيتا', 'فلفل ملون', 'بصل'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 19 },
+          { ar: 'بيتزا استربس', en: 'Chicken Strips Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'استربس فراخ'], tags: [...chickenTags, ...cheeseTags], prices: [95, 120, 160], sortOrder: 6 },
         ],
       },
       {
         ar: 'اللحوم',
         en: 'Meat',
         items: [
-          { ar: 'بيتزا سجق اسكندراني', en: 'Alexandrian Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق اسكندراني'], tags: [...meatTags, ...cheeseTags], prices: [60, 95, 130], image: '/images/products/alexandrian-sausage-meat.jpg', sortOrder: 0 },
-          { ar: 'بيتزا سجق بلدي', en: 'Baladi Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق بلدي'], tags: [...meatTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/beef-sausage-meat.jpg', sortOrder: 1 },
-          { ar: 'بيتزا لحمه مفرومة', en: 'Minced Meat Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'لحمة مفرومة'], tags: [...meatTags, ...cheeseTags], prices: [85, 110, 150], image: '/images/products/beef-meat.jpg', sortOrder: 2 },
-          { ar: 'بيتزا بسطرمة', en: 'Pastrami Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'بسطرمة'], tags: [...meatTags, ...cheeseTags], prices: [95, 110, 160], image: '/images/products/pastrami-meat.jpg', sortOrder: 7 },
-          { ar: 'بيتزا سوسيس', en: 'Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سوسيس'], tags: [...meatTags, ...cheeseTags], prices: [80, 100, 140], image: '/images/products/sausage-meat.jpg', sortOrder: 3 },
-          { ar: 'بيتزا سلامي', en: 'Salami Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/salami-meat.jpg', sortOrder: 20 },
-          { ar: 'بيتزا كفته', en: 'Kofta Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'كفتة'], tags: [...meatTags, ...cheeseTags], prices: [90, 120, 150], image: '/images/products/kofta-meat.jpg', sortOrder: 21 },
+          { ar: 'بيتزا سجق اسكندراني', en: 'Alexandrian Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق اسكندراني'], tags: [...meatTags, ...cheeseTags], prices: [60, 95, 130], sortOrder: 0 },
+          { ar: 'بيتزا سجق بلدي', en: 'Baladi Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق بلدي'], tags: [...meatTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 1 },
+          { ar: 'بيتزا لحمه مفرومة', en: 'Minced Meat Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'لحمة مفرومة'], tags: [...meatTags, ...cheeseTags], prices: [85, 110, 150], sortOrder: 2 },
+          { ar: 'بيتزا بسطرمة', en: 'Pastrami Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'بسطرمة'], tags: [...meatTags, ...cheeseTags], prices: [95, 110, 160], sortOrder: 7 },
+          { ar: 'بيتزا سوسيس', en: 'Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سوسيس'], tags: [...meatTags, ...cheeseTags], prices: [80, 100, 140], sortOrder: 3 },
+          { ar: 'بيتزا سلامي', en: 'Salami Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 20 },
+          { ar: 'بيتزا كفته', en: 'Kofta Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'كفتة'], tags: [...meatTags, ...cheeseTags], prices: [90, 120, 150], sortOrder: 21 },
         ],
       },
       {
         ar: 'الجبن',
         en: 'Cheese',
         items: [
-          { ar: 'بيتزا موتزريلا', en: 'Mozzarella Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا'], tags: cheeseTags, prices: [60, 80, 110], image: '/images/products/mozzarella-cheese.jpg', sortOrder: 12 },
-          { ar: 'بيتزا جبنه رومي', en: 'Roman Cheese Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جبن رومي'], tags: cheeseTags, prices: [80, 110, 150], image: '/images/products/roumy-cheese-cheese.jpg', sortOrder: 13 },
-          { ar: 'بيتزا جبنه كيري', en: 'Kiri Cheese Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جبنة كيري'], tags: cheeseTags, prices: [100, 130, 160], image: '/images/products/kiri-cheese-cheese.jpg', sortOrder: 14 },
+          { ar: 'بيتزا موتزريلا', en: 'Mozzarella Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا'], tags: cheeseTags, prices: [60, 80, 110], sortOrder: 12 },
+          { ar: 'بيتزا جبنه رومي', en: 'Roman Cheese Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جبن رومي'], tags: cheeseTags, prices: [80, 110, 150], sortOrder: 13 },
+          { ar: 'بيتزا جبنه كيري', en: 'Kiri Cheese Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جبنة كيري'], tags: cheeseTags, prices: [100, 130, 160], sortOrder: 14 },
         ],
       },
       {
         ar: 'الأسماك',
         en: 'Seafood',
         items: [
-          { ar: 'بيتزا تونه', en: 'Tuna Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تونة', 'بصل'], tags: [...fishTags, ...cheeseTags], prices: [80, 110, 160], image: '/images/products/tuna-seafood.jpg', sortOrder: 9 },
-          { ar: 'بيتزا جمبري', en: 'Shrimp Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جمبري'], tags: [...fishTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/shrimp-seafood.jpg', sortOrder: 10 },
-          { ar: 'بيتزا سي فود', en: 'Seafood Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جمبري', 'كاليماري', 'أسماك'], tags: [...fishTags, ...cheeseTags], prices: [110, 140, 180], image: '/images/products/sea-food-seafood.jpg', sortOrder: 11 },
+          { ar: 'بيتزا تونه', en: 'Tuna Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تونة', 'بصل'], tags: [...fishTags, ...cheeseTags], prices: [80, 110, 160], sortOrder: 9 },
+          { ar: 'بيتزا جمبري', en: 'Shrimp Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جمبري'], tags: [...fishTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 10 },
+          { ar: 'بيتزا سي فود', en: 'Seafood Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جمبري', 'كاليماري', 'أسماك'], tags: [...fishTags, ...cheeseTags], prices: [110, 140, 180], sortOrder: 11 },
         ],
       },
       {
         ar: 'المكسات',
         en: 'Mixes',
         items: [
-          { ar: 'بيتزا مكس لحوم', en: 'Meat Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق', 'بسطرمة', 'لحمة'], tags: [...meatTags, ...cheeseTags], prices: [105, 130, 160], image: '/images/products/meat-mix-mix.jpg', sortOrder: 8 },
-          { ar: 'بيتزا مكس فراخ', en: 'Chicken Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'بانيه', 'استربس'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], image: '/images/products/chicken-mix-mix.jpg', sortOrder: 22 },
-          { ar: 'بيتزا مكس جبن', en: 'Cheese Mix Pizza', ingredients: ['عجينة بيتزا', 'جبن رومي', 'كيري', 'شيدر', 'موتزريلا'], tags: cheeseTags, prices: [105, 130, 160], image: '/images/products/cheese-mix-mix.jpg', sortOrder: 23 },
-          { ar: 'بيتزا مكس حلواني مدخن', en: 'Smoked Helwany Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن', 'سلامي', 'سوسيس'], tags: [...meatTags, ...chickenTags, ...cheeseTags], prices: [105, 130, 160], image: '/images/products/smoked-helwany-mix-mix.jpg', sortOrder: 24 },
-          { ar: 'بيتزا ثورة عرابي', en: 'Orabi Revolution Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'لحمة', 'سجق', 'كفتة', 'بسطرمة', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [130, 150, 190], image: '/images/products/thawret-orabi-mix.jpg', sortOrder: 25 },
+          { ar: 'بيتزا مكس لحوم', en: 'Meat Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق', 'بسطرمة', 'لحمة'], tags: [...meatTags, ...cheeseTags], prices: [105, 130, 160], sortOrder: 8 },
+          { ar: 'بيتزا مكس فراخ', en: 'Chicken Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'بانيه', 'استربس'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], sortOrder: 22 },
+          { ar: 'بيتزا مكس جبن', en: 'Cheese Mix Pizza', ingredients: ['عجينة بيتزا', 'جبن رومي', 'كيري', 'شيدر', 'موتزريلا'], tags: cheeseTags, prices: [105, 130, 160], sortOrder: 23 },
+          { ar: 'بيتزا مكس حلواني مدخن', en: 'Smoked Helwany Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن', 'سلامي', 'سوسيس'], tags: [...meatTags, ...chickenTags, ...cheeseTags], prices: [105, 130, 160], sortOrder: 24 },
+          { ar: 'بيتزا ثورة عرابي', en: 'Orabi Revolution Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'لحمة', 'سجق', 'كفتة', 'بسطرمة', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [130, 150, 190], sortOrder: 25 },
         ],
       },
     ],
@@ -119,64 +125,65 @@ export const seedSections: SeedSection[] = [
     ar: 'بيتزا إيطالي',
     en: 'Italian Pizza',
     icon: 'pizza',
+    order: 1,
     subs: [
       {
         ar: 'الفراخ',
         en: 'Chicken',
         items: [
-          { ar: 'بيتزا فراخ', en: 'Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/chicken-chicken.jpg', sortOrder: 0 },
-          { ar: 'بيتزا شيش', en: 'Shish Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'شيش طاووق', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/sheesh-chicken.jpg', sortOrder: 13 },
-          { ar: 'بيتزا تشيكن رانش', en: 'Chicken Ranch Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص رانش'], tags: [...chickenTags, ...cheeseTags], prices: [105, 135, 165], image: '/images/products/chicken-ranch-chicken.jpg', sortOrder: 14 },
-          { ar: 'بيتزا تشيكن باربيكيو', en: 'BBQ Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص باربيكيو'], tags: [...chickenTags, ...cheeseTags], prices: [95, 125, 165], image: '/images/products/chicken-bbq-chicken.jpg', sortOrder: 15 },
-          { ar: 'بيتزا تشيكن كرانشي', en: 'Crunchy Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرانشي'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], image: '/images/products/crispy-chicken-chicken.jpg', sortOrder: 16 },
-          { ar: 'بيتزا كرسبي', en: 'Crispy Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرسبي'], tags: [...chickenTags, ...cheeseTags], prices: [95, 125, 155], image: '/images/products/crispy-chicken.jpg', sortOrder: 17 },
-          { ar: 'بيتزا فراخ كرسبي', en: 'Crispy Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرسبي'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], image: '/images/products/crispy-chicken-chicken.jpg', sortOrder: 18 },
-          { ar: 'بيتزا تركي مدخن', en: 'Smoked Turkey Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن'], tags: [...chickenTags, ...cheeseTags], prices: [90, 120, 140], image: '/images/products/smoked-turkey-chicken.jpg', sortOrder: 19 },
-          { ar: 'بيتزا فاهيتا', en: 'Fajita Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ فاهيتا', 'فلفل ملون', 'بصل'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/fajita-chicken.jpg', sortOrder: 20 },
+          { ar: 'بيتزا فراخ', en: 'Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 0 },
+          { ar: 'بيتزا شيش', en: 'Shish Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'شيش طاووق', 'صوص'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 13 },
+          { ar: 'بيتزا تشيكن رانش', en: 'Chicken Ranch Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص رانش'], tags: [...chickenTags, ...cheeseTags], prices: [105, 135, 165], sortOrder: 14 },
+          { ar: 'بيتزا تشيكن باربيكيو', en: 'BBQ Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'صوص باربيكيو'], tags: [...chickenTags, ...cheeseTags], prices: [95, 125, 165], sortOrder: 15 },
+          { ar: 'بيتزا تشيكن كرانشي', en: 'Crunchy Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرانشي'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], sortOrder: 16 },
+          { ar: 'بيتزا كرسبي', en: 'Crispy Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرسبي'], tags: [...chickenTags, ...cheeseTags], prices: [95, 125, 155], sortOrder: 17 },
+          { ar: 'بيتزا فراخ كرسبي', en: 'Crispy Chicken Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ كرسبي'], tags: [...chickenTags, ...cheeseTags], prices: [105, 130, 160], sortOrder: 18 },
+          { ar: 'بيتزا تركي مدخن', en: 'Smoked Turkey Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن'], tags: [...chickenTags, ...cheeseTags], prices: [90, 120, 140], sortOrder: 19 },
+          { ar: 'بيتزا فاهيتا', en: 'Fajita Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ فاهيتا', 'فلفل ملون', 'بصل'], tags: [...chickenTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 20 },
         ],
       },
       {
         ar: 'اللحوم',
         en: 'Meat',
         items: [
-          { ar: 'بيتزا سجق اسكندراني', en: 'Alexandrian Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق اسكندراني'], tags: [...meatTags, ...cheeseTags], prices: [80, 100, 140], image: '/images/products/alexandrian-sausage-meat.jpg', sortOrder: 2 },
-          { ar: 'بيتزا سجق بلدي', en: 'Baladi Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق بلدي'], tags: [...meatTags, ...cheeseTags], prices: [110, 135, 165], image: '/images/products/beef-sausage-meat.jpg', sortOrder: 21 },
-          { ar: 'بيتزا لحمه مفرومة', en: 'Minced Meat Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'لحمة مفرومة'], tags: [...meatTags, ...cheeseTags], prices: [90, 130, 155], image: '/images/products/beef-meat.jpg', sortOrder: 1 },
-          { ar: 'بيتزا بسطرمة', en: 'Pastrami Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'بسطرمة'], tags: [...meatTags, ...cheeseTags], prices: [100, 130, 160], image: '/images/products/pastrami-meat.jpg', sortOrder: 22 },
-          { ar: 'بيتزا سلامي', en: 'Salami Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [95, 130, 155], image: '/images/products/salami-meat.jpg', sortOrder: 23 },
-          { ar: 'بيتزا سوسيس', en: 'Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سوسيس'], tags: [...meatTags, ...cheeseTags], prices: [90, 125, 145], image: '/images/products/sausage-meat.jpg', sortOrder: 3 },
-          { ar: 'بيتزا كفته', en: 'Kofta Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'كفتة'], tags: [...meatTags, ...cheeseTags], prices: [100, 125, 150], image: '/images/products/kofta-meat.jpg', sortOrder: 24 },
+          { ar: 'بيتزا سجق اسكندراني', en: 'Alexandrian Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق اسكندراني'], tags: [...meatTags, ...cheeseTags], prices: [80, 100, 140], sortOrder: 2 },
+          { ar: 'بيتزا سجق بلدي', en: 'Baladi Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق بلدي'], tags: [...meatTags, ...cheeseTags], prices: [110, 135, 165], sortOrder: 21 },
+          { ar: 'بيتزا لحمه مفرومة', en: 'Minced Meat Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'لحمة مفرومة'], tags: [...meatTags, ...cheeseTags], prices: [90, 130, 155], sortOrder: 1 },
+          { ar: 'بيتزا بسطرمة', en: 'Pastrami Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'بسطرمة'], tags: [...meatTags, ...cheeseTags], prices: [100, 130, 160], sortOrder: 22 },
+          { ar: 'بيتزا سلامي', en: 'Salami Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [95, 130, 155], sortOrder: 23 },
+          { ar: 'بيتزا سوسيس', en: 'Sausage Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سوسيس'], tags: [...meatTags, ...cheeseTags], prices: [90, 125, 145], sortOrder: 3 },
+          { ar: 'بيتزا كفته', en: 'Kofta Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'كفتة'], tags: [...meatTags, ...cheeseTags], prices: [100, 125, 150], sortOrder: 24 },
         ],
       },
       {
         ar: 'الجبن',
         en: 'Cheese',
         items: [
-          { ar: 'بيتزا مارجريتا', en: 'Margherita Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'صوص طماطم', 'ريحان'], tags: [...cheeseTags, ...vegTags], prices: [60, 85, 120], image: '/images/products/margherita-cheese.jpg', sortOrder: 11 },
-          { ar: 'بيتزا خضروات', en: 'Vegetable Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فلفل ملون', 'مشروم', 'زيتون', 'ذرة'], tags: [...vegTags, ...cheeseTags], prices: [70, 90, 130], image: '/images/products/vegetables-cheese.jpg', sortOrder: 12 },
-          { ar: 'بيتزا جبنه رومي', en: 'Roman Cheese Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جبن رومي'], tags: cheeseTags, prices: [85, 120, 150], image: '/images/products/roumy-cheese-cheese.jpg', sortOrder: 9 },
-          { ar: 'بيتزا جبنه كيري', en: 'Kiri Cheese Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جبنة كيري'], tags: cheeseTags, prices: [100, 130, 160], image: '/images/products/kiri-cheese-cheese.jpg', sortOrder: 10 },
+          { ar: 'بيتزا مارجريتا', en: 'Margherita Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'صوص طماطم', 'ريحان'], tags: [...cheeseTags, ...vegTags], prices: [60, 85, 120], sortOrder: 11 },
+          { ar: 'بيتزا خضروات', en: 'Vegetable Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فلفل ملون', 'مشروم', 'زيتون', 'ذرة'], tags: [...vegTags, ...cheeseTags], prices: [70, 90, 130], sortOrder: 12 },
+          { ar: 'بيتزا جبنه رومي', en: 'Roman Cheese Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جبن رومي'], tags: cheeseTags, prices: [85, 120, 150], sortOrder: 9 },
+          { ar: 'بيتزا جبنه كيري', en: 'Kiri Cheese Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جبنة كيري'], tags: cheeseTags, prices: [100, 130, 160], sortOrder: 10 },
         ],
       },
       {
         ar: 'الأسماك',
         en: 'Seafood',
         items: [
-          { ar: 'بيتزا تونه', en: 'Tuna Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تونة', 'بصل'], tags: [...fishTags, ...cheeseTags], prices: [85, 110, 160], image: '/images/products/tuna-seafood.jpg', sortOrder: 4 },
-          { ar: 'بيتزا جمبري', en: 'Shrimp Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جمبري'], tags: [...fishTags, ...cheeseTags], prices: [150, 180, null], image: '/images/products/shrimp-seafood.jpg', sortOrder: 6 },
-          { ar: 'بيتزا سي فود', en: 'Seafood Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جمبري', 'كاليماري', 'أسماك'], tags: [...fishTags, ...cheeseTags], prices: [170, 200, null], image: '/images/products/sea-food-seafood.jpg', sortOrder: 5 },
+          { ar: 'بيتزا تونه', en: 'Tuna Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تونة', 'بصل'], tags: [...fishTags, ...cheeseTags], prices: [85, 110, 160], sortOrder: 4 },
+          { ar: 'بيتزا جمبري', en: 'Shrimp Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جمبري'], tags: [...fishTags, ...cheeseTags], prices: [150, 180, null], sortOrder: 6 },
+          { ar: 'بيتزا سي فود', en: 'Seafood Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'جمبري', 'كاليماري', 'أسماك'], tags: [...fishTags, ...cheeseTags], prices: [170, 200, null], sortOrder: 5 },
         ],
       },
       {
         ar: 'المكسات',
         en: 'Mixes',
         items: [
-          { ar: 'بيتزا مكس لحوم', en: 'Meat Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق', 'بسطرمة', 'لحمة'], tags: [...meatTags, ...cheeseTags], prices: [110, 135, 165], image: '/images/products/meat-mix-mix.jpg', sortOrder: 7 },
-          { ar: 'بيتزا مكس فراخ', en: 'Chicken Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'بانيه', 'استربس'], tags: [...chickenTags, ...cheeseTags], prices: [110, 135, 165], image: '/images/products/chicken-mix-mix.jpg', sortOrder: 25 },
-          { ar: 'بيتزا مكس جبن', en: 'Cheese Mix Pizza', ingredients: ['عجينة بيتزا', 'جبن رومي', 'كيري', 'شيدر', 'موتزريلا'], tags: cheeseTags, prices: [110, 135, 165], image: '/images/products/cheese-mix-mix.jpg', sortOrder: 8 },
-          { ar: 'بيتزا مكس حلواني', en: 'Helwany Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن', 'سلامي', 'سوسيس'], tags: [...meatTags, ...chickenTags, ...cheeseTags], prices: [110, 135, 165], image: '/images/products/helwany-mix-mix.jpg', sortOrder: 26 },
-          { ar: 'بيتزا سوبر سوبريم', en: 'Super Supreme Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سوسيس', 'مشروم', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [110, 135, 165], image: '/images/products/super-supreme-mix.jpg', sortOrder: 27 },
-          { ar: 'بيتزا ثورة عرابي', en: 'Orabi Revolution Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'لحمة', 'سجق', 'كفتة', 'بسطرمة', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [120, 145, 190], image: '/images/products/thawret-orabi-mix.jpg', sortOrder: 28 },
+          { ar: 'بيتزا مكس لحوم', en: 'Meat Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سجق', 'بسطرمة', 'لحمة'], tags: [...meatTags, ...cheeseTags], prices: [110, 135, 165], sortOrder: 7 },
+          { ar: 'بيتزا مكس فراخ', en: 'Chicken Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'فراخ', 'بانيه', 'استربس'], tags: [...chickenTags, ...cheeseTags], prices: [110, 135, 165], sortOrder: 25 },
+          { ar: 'بيتزا مكس جبن', en: 'Cheese Mix Pizza', ingredients: ['عجينة بيتزا', 'جبن رومي', 'كيري', 'شيدر', 'موتزريلا'], tags: cheeseTags, prices: [110, 135, 165], sortOrder: 8 },
+          { ar: 'بيتزا مكس حلواني', en: 'Helwany Mix Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'تركي مدخن', 'سلامي', 'سوسيس'], tags: [...meatTags, ...chickenTags, ...cheeseTags], prices: [110, 135, 165], sortOrder: 26 },
+          { ar: 'بيتزا سوبر سوبريم', en: 'Super Supreme Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'سوسيس', 'مشروم', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [110, 135, 165], sortOrder: 27 },
+          { ar: 'بيتزا ثورة عرابي', en: 'Orabi Revolution Pizza', ingredients: ['عجينة بيتزا', 'موتزريلا', 'لحمة', 'سجق', 'كفتة', 'بسطرمة', 'سلامي'], tags: [...meatTags, ...cheeseTags], prices: [120, 145, 190], sortOrder: 28 },
         ],
       },
     ],
@@ -185,6 +192,7 @@ export const seedSections: SeedSection[] = [
     ar: 'المقبلات',
     en: 'Starters',
     icon: 'utensils',
+    order: 4,
     subs: [
       {
         ar: 'المقبلات',
@@ -199,10 +207,10 @@ export const seedSections: SeedSection[] = [
         ar: 'الإضافات',
         en: 'Add-ons',
         items: [
-          { ar: 'موتزريلا', en: 'Mozzarella', ingredients: ['موتزريلا'], tags: cheeseTags, prices: [15, 25, 35], image: '/images/products/mozzarella-cheese.jpg', sortOrder: 2 },
-          { ar: 'فراخ', en: 'Chicken', ingredients: ['فراخ'], tags: chickenTags, prices: [25, 35, 50], image: '/images/products/chicken-chicken.jpg', sortOrder: 0 },
-          { ar: 'لحوم', en: 'Meat', ingredients: ['لحوم'], tags: meatTags, prices: [25, 35, 50], image: '/images/products/beef-meat.jpg', sortOrder: 1 },
-          { ar: 'قطعة كيري', en: 'Kiri Cheese Piece', ingredients: ['جبنة كيري'], tags: cheeseTags, prices: [15, null, null], image: '/images/products/kiri-cheese-cheese.jpg', sortOrder: 3 },
+          { ar: 'موتزريلا', en: 'Mozzarella', ingredients: ['موتزريلا'], tags: cheeseTags, prices: [15, 25, 35], sortOrder: 2 },
+          { ar: 'فراخ', en: 'Chicken', ingredients: ['فراخ'], tags: chickenTags, prices: [25, 35, 50], sortOrder: 0 },
+          { ar: 'لحوم', en: 'Meat', ingredients: ['لحوم'], tags: meatTags, prices: [25, 35, 50], sortOrder: 1 },
+          { ar: 'قطعة كيري', en: 'Kiri Cheese Piece', ingredients: ['جبنة كيري'], tags: cheeseTags, prices: [15, null, null], sortOrder: 3 },
         ],
       },
     ],
@@ -211,6 +219,7 @@ export const seedSections: SeedSection[] = [
     ar: 'باستا',
     en: 'Pasta',
     icon: 'pizza',
+    order: 3,
     subs: [
       {
         ar: 'باستا',
@@ -232,6 +241,7 @@ export const seedSections: SeedSection[] = [
     ar: 'حواوشي',
     en: 'Hawawshi',
     icon: 'sandwich',
+    order: 5,
     subs: [
       {
         ar: 'حواوشي',
@@ -252,6 +262,7 @@ export const seedSections: SeedSection[] = [
     ar: 'كريب',
     en: 'Crepe',
     icon: 'layers',
+    order: 2,
     subs: [
       {
         ar: 'كريب فراخ',
@@ -301,7 +312,7 @@ export const seedSections: SeedSection[] = [
           { ar: 'بطاطس', en: 'Potato Crepe', ingredients: ['كريب', 'بطاطس مقلية', 'صوص'], tags: [...crepeTags, ...vegTags], prices: [40, null, null], sortOrder: 1 },
           { ar: 'مشروم', en: 'Mushroom Crepe', ingredients: ['كريب', 'مشروم', 'جبن'], tags: [...crepeTags, ...vegTags], prices: [50, null, null], sortOrder: 2 },
           { ar: 'موتزريلا', en: 'Mozzarella Crepe', ingredients: ['كريب', 'موتزريلا'], tags: [...crepeTags, ...cheeseTags], prices: [50, null, null], sortOrder: 3 },
-          { ar: 'جبنه رومي', en: 'Roman Cheese Crepe', ingredients: ['كريب', 'جبن رومي'], tags: [...crepeTags, ...cheeseTags], prices: [60, null, null], image: '/images/products/roumy-cheese-cheese.jpg', sortOrder: 4 },
+          { ar: 'جبنه رومي', en: 'Roman Cheese Crepe', ingredients: ['كريب', 'جبن رومي'], tags: [...crepeTags, ...cheeseTags], prices: [60, null, null], sortOrder: 4 },
           { ar: 'بطاطس شيدر', en: 'Cheddar Potato Crepe', ingredients: ['كريب', 'بطاطس', 'شيدر'], tags: [...crepeTags, ...vegTags], prices: [55, null, null], sortOrder: 0 },
         ],
       },
@@ -311,15 +322,16 @@ export const seedSections: SeedSection[] = [
     ar: 'كريب حلو',
     en: 'Sweet Crepe',
     icon: 'candy',
+    order: 7,
     subs: [
       {
         ar: 'كريب حلو',
         en: 'Sweet Crepe',
         items: [
-          { ar: 'شيكولاتة', en: 'Chocolate Crepe', ingredients: ['كريب', 'شيكولاتة'], tags: [...crepeTags, ...sweetTags], prices: [50, null, null], image: '/images/products/chocolate-sweet-feteer.jpg', sortOrder: 0 },
-          { ar: 'شيكولاتة موز', en: 'Chocolate Banana Crepe', ingredients: ['كريب', 'شيكولاتة', 'موز'], tags: [...crepeTags, ...sweetTags], prices: [60, null, null], image: '/images/products/chocolate-banana-sweet-feteer.jpg', sortOrder: 2 },
-          { ar: 'شيكولاتة أوريو', en: 'Chocolate Oreo Crepe', ingredients: ['كريب', 'شيكولاتة', 'أوريو'], tags: [...crepeTags, ...sweetTags], prices: [60, null, null], image: '/images/products/chocolate-oreo-sweet-feteer.jpg', sortOrder: 1 },
-          { ar: 'لوتس', en: 'Lotus Crepe', ingredients: ['كريب', 'صوص لوتس', 'بسكويت'], tags: [...crepeTags, ...sweetTags], prices: [65, null, null], image: '/images/products/lotus-sweet-feteer.jpg', sortOrder: 3 },
+          { ar: 'شيكولاتة', en: 'Chocolate Crepe', ingredients: ['كريب', 'شيكولاتة'], tags: [...crepeTags, ...sweetTags], prices: [50, null, null], sortOrder: 0 },
+          { ar: 'شيكولاتة موز', en: 'Chocolate Banana Crepe', ingredients: ['كريب', 'شيكولاتة', 'موز'], tags: [...crepeTags, ...sweetTags], prices: [60, null, null], sortOrder: 2 },
+          { ar: 'شيكولاتة أوريو', en: 'Chocolate Oreo Crepe', ingredients: ['كريب', 'شيكولاتة', 'أوريو'], tags: [...crepeTags, ...sweetTags], prices: [60, null, null], sortOrder: 1 },
+          { ar: 'لوتس', en: 'Lotus Crepe', ingredients: ['كريب', 'صوص لوتس', 'بسكويت'], tags: [...crepeTags, ...sweetTags], prices: [65, null, null], sortOrder: 3 },
         ],
       },
     ],
@@ -328,6 +340,7 @@ export const seedSections: SeedSection[] = [
     ar: 'طواجن وسفرة',
     en: 'Tagine & Delivery',
     icon: 'utensils',
+    order: 6,
     subs: [
       {
         ar: 'طواجن',
@@ -357,6 +370,7 @@ export const seedSections: SeedSection[] = [
     ar: 'حلو',
     en: 'Dessert',
     icon: 'cake',
+    order: 8,
     subs: [
       {
         ar: 'حلو',
@@ -364,7 +378,7 @@ export const seedSections: SeedSection[] = [
         items: [
           { ar: 'أرز عادي', en: 'Regular Rice', ingredients: ['أرز', 'زبدة', 'ملح'], tags: sweetTags, prices: [15, null, null], sortOrder: 0 },
           { ar: 'أرز فرن', en: 'Baked Rice', ingredients: ['أرز باللبن', 'سكر'], tags: sweetTags, prices: [17, null, null], sortOrder: 1 },
-          { ar: 'كاتز', en: 'Custard', ingredients: ['كاسترد', 'سكر'], tags: sweetTags, prices: [25, null, null], image: '/images/products/custard-sweet-feteer.jpg', sortOrder: 2 },
+          { ar: 'كاتز', en: 'Custard', ingredients: ['كاسترد', 'سكر'], tags: sweetTags, prices: [25, null, null], sortOrder: 2 },
           { ar: 'مياه', en: 'Water', ingredients: ['مياه معدنية'], tags: ['مشروبات'], prices: [10, null, null], sortOrder: 3 },
         ],
       },
@@ -380,8 +394,11 @@ export const seedExtras = [
   { ar: 'مشروم', en: 'Mushroom', price: 10 },
 ];
 
-// Bestsellers (deterministic) - every name resolves to an item in the catalog
+// Bestsellers (deterministic) - every name resolves to an item in the catalog.
+// Pizzas lead so the home best-sellers widget starts with pizzas, then crepes,
+// then pastas (matching the section display order).
 export const bestSellerNames = [
+  'بيتزا فراخ', 'بيتزا مارجريتا', 'بيتزا تشيكن باربيكيو', 'بيتزا سجق اسكندراني',
   'شاورما فراخ', 'اتشكن باربيكيو', 'لحمه', 'مكس الاسطورة', 'طاجن فراخ',
   'بطاطس شيدر', 'شيكولاتة', 'شيكولاتة أوريو', 'جمبري', 'لحمه حواوشي',
 ];

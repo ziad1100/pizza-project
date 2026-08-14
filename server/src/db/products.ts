@@ -60,6 +60,19 @@ const SEARCH_CLAUSE = (i: number): string => `
    OR EXISTS (SELECT 1 FROM unnest(p.tags) t WHERE t ILIKE '%' || $${i} || '%')
    OR EXISTS (SELECT 1 FROM unnest(p.ingredients) t WHERE t ILIKE '%' || $${i} || '%'))`;
 
+// Products must belong to an ACTIVE category chain — an active sub under an
+// active section, or a direct product of an active section. A hidden category
+// hides its products consistently everywhere (menu, search, best sellers,
+// offers), so the menu grouping and the APIs can never disagree.
+const ACTIVE_CATEGORY_CLAUSE = `
+  EXISTS (
+    SELECT 1 FROM categories c
+     WHERE c.id = p."categoryId"
+       AND c."isActive" = true
+       AND (c.type = 'section'
+            OR EXISTS (SELECT 1 FROM categories s WHERE s.id = c."parentId" AND s."isActive" = true))
+  )`;
+
 const SORTS: Record<string, string> = {
   newest: 'p."createdAt" DESC, p.id',
   price_asc: 'p."basePrice" ASC, p."createdAt" DESC',
@@ -81,7 +94,7 @@ const toPage = <T>(rows: Array<Record<string, unknown>>, limit: number): Page<T>
 };
 
 export const listProducts = async (f: ListFilter, sort: string, page: number, limit: number): Promise<Page<Record<string, unknown>>> => {
-  const conds: string[] = ['p."isAvailable" = true'];
+  const conds: string[] = ['p."isAvailable" = true', ACTIVE_CATEGORY_CLAUSE];
   const values: unknown[] = [];
   const nxt = () => values.length;
 
@@ -133,30 +146,26 @@ export const adminList = async (
   return toPage(rows, limit);
 };
 
-// Best sellers are grouped by section so pizzas lead, then crepes, then pastas,
-// and everything else follows — each group still ordered by rating.
-// Section slugs are stable (seed: `section-<english-name>`).
-const BEST_SELLER_GROUP_ORDER = `
-  CASE (
-    SELECT s.slug FROM categories sub JOIN categories s ON s.id = sub."parentId"
-    WHERE sub.id = p."categoryId"
-  )
-    WHEN 'section-oriental-pizza' THEN 0
-    WHEN 'section-italian-pizza' THEN 0
-    WHEN 'section-crepe' THEN 1
-    WHEN 'section-sweet-crepe' THEN 1
-    WHEN 'section-pasta' THEN 2
-    ELSE 3
-  END`;
+// Best sellers are grouped by section following the admin-controlled category
+// display order (categories."sortOrder" — the same order the menu uses), so the
+// home-page widget and the menu can never disagree. Within each section the
+// best sellers are ordered by rating. Unassigned products fall back to the
+// category's own sortOrder, then to the end.
+const BEST_SELLER_ORDER = `
+  COALESCE(
+    (SELECT s."sortOrder" FROM categories sub JOIN categories s ON s.id = sub."parentId" WHERE sub.id = p."categoryId"),
+    (SELECT c."sortOrder" FROM categories c WHERE c.id = p."categoryId"),
+    9999
+  )`;
 
 export const bestSellers = async (): Promise<Record<string, unknown>[]> =>
   (await query(`SELECT ${PUBLIC_COLS} FROM products p
-    WHERE p."isAvailable" = true AND p."isBestSeller" = true
-    ORDER BY ${BEST_SELLER_GROUP_ORDER} ASC, p.rating DESC, p."createdAt" DESC LIMIT 10`)) as Record<string, unknown>[];
+    WHERE p."isAvailable" = true AND ${ACTIVE_CATEGORY_CLAUSE} AND p."isBestSeller" = true
+    ORDER BY ${BEST_SELLER_ORDER} ASC, p.rating DESC, p."createdAt" DESC LIMIT 10`)) as Record<string, unknown>[];
 
 export const offers = async (): Promise<Record<string, unknown>[]> =>
   (await query(`SELECT ${PUBLIC_COLS} FROM products p
-    WHERE p."isAvailable" = true AND p."isOffer" = true
+    WHERE p."isAvailable" = true AND ${ACTIVE_CATEGORY_CLAUSE} AND p."isOffer" = true
     ORDER BY p.discount DESC, p."createdAt" DESC LIMIT 10`)) as Record<string, unknown>[];
 
 export const getBySlug = async (slug: string): Promise<Record<string, unknown> | null> =>

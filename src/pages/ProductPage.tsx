@@ -104,24 +104,28 @@ export function ProductPage() {
       <div className="grid gap-10 lg:grid-cols-2">
         <div className="relative overflow-hidden rounded-3xl border border-night-800 bg-night-900">
           {image ? (
-            <img src={image} alt={product.name} className="aspect-square w-full object-cover" />
+            <img
+              src={image}
+              alt={lang === 'ar' ? product.name : product.nameEn || product.name}
+              className="aspect-square h-full w-full object-cover"
+            />
           ) : (
-            <div className="flex aspect-square w-full items-center justify-center bg-gradient-to-br from-night-800 to-night-950">
-              <ShoppingBag className="h-24 w-24 text-night-700" />
+            <div className="flex aspect-square items-center justify-center">
+              <ShoppingBag className="h-16 w-16 text-night-600" />
             </div>
           )}
-          {product.isBestSeller ? (
-            <Badge tone="brand" className="absolute start-4 top-4 text-sm">
-              <Flame className="h-4 w-4" />
-              {t('menu.bestSeller')}
-            </Badge>
-          ) : null}
         </div>
 
         <div>
-          <h1 className="text-3xl font-extrabold text-night-50 md:text-4xl">
-            {lang === 'ar' ? product.name : product.nameEn || product.name}
-          </h1>
+        {product.isBestSeller ? (
+          <Badge tone="brand" className="mb-3 text-sm">
+            <Flame className="h-4 w-4" />
+            {t('menu.bestSeller')}
+          </Badge>
+        ) : null}
+        <h1 className="text-3xl font-extrabold text-night-50 md:text-4xl">
+          {lang === 'ar' ? product.name : product.nameEn || product.name}
+        </h1>
           <div className="mt-3 flex items-center gap-3 text-sm text-night-400">
             <span className="flex items-center gap-1 text-gold-500">
               <Star className="h-4 w-4 fill-current" />

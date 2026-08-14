@@ -15,6 +15,10 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // `const { __total, ...rest } = row` intentionally drops the helper column.
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
+    },
     languageOptions: {
       globals: globals.browser,
     },

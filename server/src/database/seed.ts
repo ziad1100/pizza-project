@@ -25,19 +25,16 @@ import * as galleryRepo from '../db/gallery';
 const slugifyEn = (text: string): string =>
   slugify(text, { lower: true, strict: true }) || `item-${Date.now().toString(36)}`;
 
-// Real dish photos live in public/images/products. The URL is derived from the
-// product's English name + its sub-section (e.g. "Chicken BBQ" in "Chicken" ->
-// /images/products/chicken-bbq-chicken.jpg). We hard-fail when a photo is
-// missing so products can never silently lose their images again.
+// Every product carries a real dish photo from public/images/products, named
+// `<en>-<sub>.jpg` (provisioned by scripts/gen-dish-photo-plan.ts +
+// scripts/download-dish-photos*.mjs). A product is only left without an image
+// if its photo file is missing — nothing hard-fails.
 const PUBLIC_PRODUCTS_DIR = fileURLToPath(new URL('../../../public/images/products', import.meta.url));
 
-const imageFor = (item: SeedItem, sub: SeedSub): string => {
-  const url = item.image ?? `/images/products/${slugifyEn(item.en)}-${slugifyEn(sub.en)}.jpg`;
+const imageFor = (item: SeedItem, sub: SeedSub): string | null => {
+  const url = `/images/products/${slugifyEn(item.en)}-${slugifyEn(sub.en)}.jpg`;
   const file = path.basename(url);
-  if (!fs.existsSync(path.join(PUBLIC_PRODUCTS_DIR, file))) {
-    throw new Error(`[seed] missing product image for "${item.en}" (sub: ${sub.en}): expected public/images/products/${file}`);
-  }
-  return url;
+  return fs.existsSync(path.join(PUBLIC_PRODUCTS_DIR, file)) ? url : null;
 };
 
 const clearTables = async (): Promise<void> => {
@@ -78,7 +75,7 @@ const seedCategories = async (): Promise<Record<string, Record<string, string>>>
       slug: `section-${slugifyEn(section.en)}`,
       type: 'section',
       icon: section.icon,
-      order: Object.keys(map).length,
+      order: section.order ?? Object.keys(map).length,
       isActive: true,
     });
     if (!sectionDoc) throw new Error('[seed] failed to create section category');
@@ -140,6 +137,7 @@ const seedProducts = async (catMap: Record<string, Record<string, string>>): Pro
         const isOffer = offerNames.includes(item.ar);
         const discount = isOffer ? 15 + (bestCounter % 4) * 5 : 0;
         const [description, descriptionEn] = descFor(item.ar, item.en);
+        const image = imageFor(item, sub);
         await productsRepo.create({
           name: item.ar,
           nameEn: item.en,
@@ -147,7 +145,7 @@ const seedProducts = async (catMap: Record<string, Record<string, string>>): Pro
           description,
           descriptionEn,
           category: categoryId,
-          images: [imageFor(item, sub)],
+          images: image ? [image] : [],
           sizes,
           extras: seedExtras.map((e) => ({ name: e.ar, nameEn: e.en, price: e.price })),
           ingredients: item.ingredients ?? [],
@@ -488,6 +486,14 @@ const repairOfferBanners = async (): Promise<void> => {
 };
 
 const run = async (): Promise<void> => {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Never wipe production data. SEED_RESET against production is a hard error,
+  // even though the seed below skips existing data by default.
+  if (isProduction && process.env.SEED_RESET === '1') {
+    throw new Error('[seed] SEED_RESET=1 is forbidden in production (would wipe live data).');
+  }
+
   console.log('[seed] connecting...');
   await connectDB();
   await ensureSchema();
@@ -499,16 +505,23 @@ const run = async (): Promise<void> => {
   }
   await ensureRolePermissions();
   await clearTables();
-  const userIds = await seedUsers();
+
+  // Demo users, demo order and demo cart are DEVELOPMENT-only. In production,
+  // the menu/catalog seed still runs (that is the real menu), but no demo
+  // credentials (admin@pizzahouse.dev / Pizza123!) are ever created. Create the
+  // first admin via the register page using ADMIN_REGISTER_CODE instead.
+  const userIds = isProduction ? {} : await seedUsers();
   const catMap = await seedCategories();
   await seedProducts(catMap);
   await seedCommerce();
   await repairOfferBanners();
   await seedGallery();
   await seedSettings();
-  await seedReviews(userIds);
-  await seedDemoOrder(userIds);
-  await seedCart(userIds);
+  if (!isProduction) {
+    await seedReviews(userIds);
+    await seedDemoOrder(userIds);
+    await seedCart(userIds);
+  }
 
   const counts = await query<{ products: string; categories: string; users: string }>(
     `SELECT (SELECT count(*) FROM products)::int::text AS products,

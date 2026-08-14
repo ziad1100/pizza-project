@@ -93,3 +93,7 @@ plus `docs/SECURITY.md`, `docs/AUTHENTICATION.md`, `docs/ADMIN_AUTHORIZATION.md`
 - Requires PostgreSQL (Docker Postgres or any managed PG), Redis for cache/queues, and
   real JWT/SMTP/Cloudinary/OAuth config — see the production checklist in
   `server/.env.example`.
+- **Vercel frontend + separate API/Postgres/Redis**: full runbook in
+  **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** — environment variables, domain/CORS,
+  cookies (`COOKIE_SAMESITE`), migrations, backups, rollback, health checks
+  (`/health`, `/health/ready`), and the manual steps that must be completed externally.

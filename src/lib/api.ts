@@ -1,8 +1,20 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { refreshAccessToken } from '@/api/auth';
 
+/**
+ * Backend origin for API calls.
+ *
+ * - Development: unset → relative `/api/v1`, proxied by Vite to localhost:5000.
+ * - Production (Vercel frontend + separate API): set `VITE_API_URL` to the
+ *   backend origin (e.g. `https://api.example.com`). Never include a trailing
+ *   slash; the `/api/v1` prefix is appended here.
+ */
+export const apiOrigin = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+
+export const apiBaseUrl = apiOrigin ? `${apiOrigin}/api/v1` : '/api/v1';
+
 export const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: apiBaseUrl,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',

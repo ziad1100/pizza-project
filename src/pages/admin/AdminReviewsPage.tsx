@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BadgeCheck, Ban, Eye, Star } from 'lucide-react';
+import { BadgeCheck, Ban, Eye, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { adminListProducts, adminListReviews, adminModerateReview, adminReviewStats } from '@/api/admin';
+import { adminListProducts, adminListReviews, adminModerateReview, adminReviewStats, deleteReview } from '@/api/admin';
 import { Card, CardContent, EmptyState, Skeleton } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Card';
 import {
+  ConfirmDialog,
   PageHeader,
   Pagination,
   SearchBox,
@@ -62,6 +63,18 @@ export function AdminReviewsPage() {
     onSuccess: () => {
       toast.success(t('admin.saved'));
       invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const [deleting, setDeleting] = useState<Review | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteReview(id),
+    onSuccess: () => {
+      toast.success(t('review.deleted'));
+      invalidate();
+      setDeleting(null);
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
@@ -188,7 +201,9 @@ export function AdminReviewsPage() {
                     <p className="mt-0.5 text-xs text-night-500" dir="ltr">{r.rating} / 5</p>
                   </Td>
                   <Td>
-                    <p className="max-w-[260px] truncate text-sm text-night-300">{r.comment || '—'}</p>
+                    <p className="max-w-[300px] text-sm text-night-300 line-clamp-2" title={r.comment}>
+                      {r.comment || '—'}
+                    </p>
                   </Td>
                   <Td>
                     {r.isVerifiedPurchase ? (
@@ -231,6 +246,17 @@ export function AdminReviewsPage() {
                           {t('admin.hide')}
                         </Button>
                       ) : null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-400 hover:bg-red-500/10 hover:text-red-400"
+                        disabled={moderateMutation.isPending || deleteMutation.isPending}
+                        onClick={() => setDeleting(r)}
+                        title={t('common.delete')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('common.delete')}
+                      </Button>
                     </div>
                   </Td>
                 </tr>
@@ -238,6 +264,22 @@ export function AdminReviewsPage() {
             </tbody>
           </TableWrap>
           <Pagination page={reviews.data.page} pages={reviews.data.pages} onPage={setPage} />
+
+          <ConfirmDialog
+            open={Boolean(deleting)}
+            onClose={() => setDeleting(null)}
+            onConfirm={() => deleting && deleteMutation.mutate(deleting._id as string)}
+            title={t('admin.confirmDeleteTitle')}
+            message={
+              deleting
+                ? t('admin.deleteReviewConfirm', {
+                    meal: productName(deleting),
+                    comment: deleting.comment?.slice(0, 80) || '—',
+                  })
+                : ''
+            }
+            loading={deleteMutation.isPending}
+          />
         </>
       ) : (
         <Card>

@@ -5,10 +5,11 @@ import { signAccessToken, signRefreshToken } from './token';
 const REFRESH_COOKIE = 'refreshToken';
 const ACCESS_COOKIE = 'accessToken';
 
+// SameSite=None is only honored by browsers when the cookie is Secure (HTTPS).
 const cookieOptions = {
   httpOnly: true,
-  secure: env.cookieSecure,
-  sameSite: 'lax' as const,
+  secure: env.cookieSameSite === 'none' ? true : env.cookieSecure,
+  sameSite: env.cookieSameSite,
   path: '/',
 };
 

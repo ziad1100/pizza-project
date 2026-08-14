@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -42,6 +42,12 @@ export function ReviewPrompt() {
   const { t } = useTranslation();
   const user = useAppSelector((s) => s.auth.user);
   const [hidden, setHidden] = useState(false);
+  // Read localStorage once (lazy initializer) — never during render.
+  const [stored, setStored] = useState<StoredState>(() => readStored());
+  // Ticking clock so cooldown/delay math stays pure during render; refreshed
+  // from an interval subscription (external system → callback setState).
+  const [now, setNow] = useState(() => Date.now());
+  const shownForOrder = useRef<string | null>(null);
 
   const settings = useQuery({ queryKey: ['settings'], queryFn: getSettings, staleTime: 5 * 60_000 });
   const pending = useQuery({
@@ -53,10 +59,13 @@ export function ReviewPrompt() {
   const cooldownMs = (Number(settings.data?.reviewPromptCooldownDays ?? 3) || 3) * DAY;
   const delayMs = (Number(settings.data?.reviewPromptDelayHours ?? 24) || 24) * HOUR;
 
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const target = useMemo(() => {
     if (hidden || !user) return null;
-    const stored = readStored();
-    const now = Date.now();
     if (stored.lastShownAt && now - stored.lastShownAt < cooldownMs) return null;
     const dismissed = stored.dismissed ?? [];
     return (pending.data ?? []).find((o) => {
@@ -65,24 +74,28 @@ export function ReviewPrompt() {
       if (now - deliveredAt < delayMs) return false;
       return true;
     }) ?? null;
-  }, [hidden, user, pending.data, cooldownMs, delayMs]);
+  }, [hidden, user, stored, pending.data, cooldownMs, delayMs, now]);
 
-  // Record the showing so the cooldown starts now.
+  // Record the showing so the cooldown starts now. Only persists to localStorage
+  // (an external side effect) — once per order, no React state is touched here.
   useEffect(() => {
-    if (target) {
-      writeStored({ ...readStored(), lastShownAt: Date.now() });
+    if (target && shownForOrder.current !== target.orderId) {
+      shownForOrder.current = target.orderId;
+      writeStored({ ...stored, lastShownAt: Date.now() });
     }
-  }, [target]);
+  }, [target, stored]);
 
   if (!target) return null;
 
   const dismiss = (): void => {
-    const stored = readStored();
-    writeStored({
+    const at = Date.now();
+    const next: StoredState = {
       ...stored,
-      lastShownAt: Date.now(),
+      lastShownAt: at,
       dismissed: [...(stored.dismissed ?? []), target.orderId],
-    });
+    };
+    writeStored(next);
+    setStored(next);
     setHidden(true);
   };
 

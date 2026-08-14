@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { adminListCategories, createCategory, deleteCategory, toggleCategory, updateCategory } from '@/api/admin';
 import { Button } from '@/components/ui/Button';
@@ -16,9 +16,12 @@ interface CategoryForm {
   nameEn: string;
   type: 'section' | 'sub';
   parentId: string;
+  order: number;
 }
 
-const blank = (): CategoryForm => ({ name: '', nameEn: '', type: 'section', parentId: '' });
+// New categories default to the end of the menu (order 999); the admin can
+// reorder them with the arrows or by editing the display order directly.
+const blank = (): CategoryForm => ({ name: '', nameEn: '', type: 'section', parentId: '', order: 999 });
 
 export function AdminCategoriesPage() {
   const { t, i18n } = useTranslation();
@@ -42,12 +45,15 @@ export function AdminCategoriesPage() {
 
   const openEdit = (c: Category): void => {
     setEditing(c);
-    setForm({ name: c.name, nameEn: c.nameEn, type: c.type, parentId: c.parentId ?? '' });
+    setForm({ name: c.name, nameEn: c.nameEn, type: c.type, parentId: c.parentId ?? '', order: c.order });
     setOpen(true);
   };
 
   const invalidate = (): void => {
     void queryClient.invalidateQueries({ queryKey: ['admin', 'categories'] });
+    // Keep the public menu/category data in sync right away — the server cache
+    // is invalidated by the API, but the open client also holds this data.
+    void queryClient.invalidateQueries({ queryKey: ['categories'] });
   };
 
   const saveMutation = useMutation({
@@ -57,6 +63,7 @@ export function AdminCategoriesPage() {
         nameEn: form.nameEn.trim(),
         type: form.type,
         parentId: form.type === 'sub' && form.parentId ? form.parentId : null,
+        order: Math.max(0, Math.floor(Number(form.order) || 0)),
       };
       if (editing) await updateCategory(editing._id, payload);
       else await createCategory(payload);
@@ -85,6 +92,36 @@ export function AdminCategoriesPage() {
       invalidate();
       setDeleting(null);
     },
+  });
+
+  // Move a category up/down within its sibling group (sections together,
+  // subs under the same parent). The group's orders are normalized to 0..n-1 so
+  // reordering always works, even when several categories share an order value.
+  const reorderMutation = useMutation({
+    mutationFn: async ({ id, dir }: { id: string; dir: -1 | 1 }): Promise<void> => {
+      const cat = (categories.data ?? []).find((c) => c._id === id);
+      if (!cat) return;
+      const siblings = (categories.data ?? [])
+        .filter((c) =>
+          cat.type === 'section'
+            ? c.type === 'section'
+            : c.type === 'sub' && (c.parentId ?? '') === (cat.parentId ?? ''),
+        )
+        .sort((a, b) => a.order - b.order || a._id.localeCompare(b._id));
+      const from = siblings.findIndex((c) => c._id === id);
+      const to = from + dir;
+      if (from < 0 || to < 0 || to >= siblings.length) return;
+      [siblings[from], siblings[to]] = [siblings[to], siblings[from]];
+      const updates = siblings
+        .map((c, i) => (c.order === i ? null : updateCategory(c._id, { order: i })))
+        .filter((u): u is Promise<Category> => u !== null);
+      await Promise.all(updates);
+    },
+    onSuccess: () => {
+      toast.success(t('admin.saved'));
+      invalidate();
+    },
+    onError: () => toast.error(t('admin.saveFailed')),
   });
 
   const nameOf = (list: Category[], id: string): string => {
@@ -130,7 +167,35 @@ export function AdminCategoriesPage() {
                 </Td>
                 <Td>{c.type === 'section' ? t('admin.isSection') : t('admin.isSub')}</Td>
                 <Td>{c.type === 'sub' ? nameOf(sections, c.parentId ?? '') : '—'}</Td>
-                <Td>{c.order}</Td>
+                <Td>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-night-300">{c.order}</span>
+                    <span className="inline-flex">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={reorderMutation.isPending}
+                        onClick={() => reorderMutation.mutate({ id: c._id, dir: -1 })}
+                        title={t('common.moveUp')}
+                        aria-label={t('common.moveUp')}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={reorderMutation.isPending}
+                        onClick={() => reorderMutation.mutate({ id: c._id, dir: 1 })}
+                        title={t('common.moveDown')}
+                        aria-label={t('common.moveDown')}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </span>
+                  </div>
+                </Td>
                 <Td>
                   <ToggleSwitch checked={c.isActive} onChange={() => toggleMutation.mutate(c._id)} disabled={toggleMutation.isPending} />
                 </Td>
@@ -198,6 +263,18 @@ export function AdminCategoriesPage() {
               </Select>
             </div>
           ) : null}
+
+          <div>
+            <Label htmlFor="c-order">{t('admin.order')}</Label>
+            <Input
+              id="c-order"
+              type="number"
+              min={0}
+              value={form.order}
+              onChange={(e) => setForm({ ...form, order: Number(e.target.value) || 0 })}
+            />
+            <p className="mt-1 text-xs text-night-500">{t('admin.orderHint')}</p>
+          </div>
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>

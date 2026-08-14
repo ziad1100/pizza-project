@@ -1,0 +1,174 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Render Blueprint — ORABI Restaurant production backend (one-command launch)
+#
+#   render blueprint launch
+#
+# Creates the complete backend stack from the existing Dockerfile:
+#   • production PostgreSQL  (private network — never exposed publicly)
+#   • Redis                  (BullMQ queues + cache; paid plan required)
+#   • API Web Service        (Express + Node, health check on /health)
+#   • BullMQ worker          (email + analytics rollup; paid plan required)
+#   • One-off seed job       (menu/catalog only, safe under NODE_ENV=production)
+#
+# The Vercel frontend talks to the web service only. DATABASE_URL and REDIS_URL
+# are injected automatically by Render (fromDatabase / fromRedis) — they are
+# internal connection strings, reachable only from Render services.
+#
+# PLANS: `free` web services sleep after ~15 min idle; free Postgres expires
+# after 30 days. Redis (Key Value), workers and one-off jobs require a paid
+# plan. For a real restaurant deployment use Starter or higher.
+#
+# SECRETS: every `sync: false` variable is intentionally NOT managed from this
+# file. Set real values in the Render dashboard (or via the CLI/API) after
+# launch. Nothing sensitive is ever committed to git.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Production PostgreSQL (separate from the local Docker database) ──────
+  - type: postgres
+    name: pizzaproject-db
+    database: pizza
+    user: pizza
+    plan: free
+    ipAllowList: [] # private network only — no public database domain
+
+  # ── Production Redis (BullMQ queues + cache) ──────────────────────────────
+  # Requires a paid plan. Without it the API still works (cache is best-effort,
+  # emails send inline, /health/ready reports redis: disabled).
+  - type: redis
+    name: pizzaproject-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
+
+  # ── API Web Service — builds the existing Dockerfile ──────────────────────
+  - type: web
+    name: pizzaproject-api
+    runtime: docker
+    repo: https://github.com/ziad1100/pizza-project
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pizzaproject-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedis:
+          name: pizzaproject-redis
+          property: connectionString
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: "none" # frontend (Vercel) and API (Render) are different domains
+      # ── Secrets — set in the Render dashboard after launch, never in git ──
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: CLIENT_URL # https://<your-app>.vercel.app — set after Vercel deploy
+        sync: false
+      - key: ADMIN_REGISTER_CODE
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: FACEBOOK_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_CALLBACK_URL
+        sync: false
+
+  # ── BullMQ worker (email + analytics rollup) — requires a paid plan ───────
+  - type: worker
+    name: pizzaproject-worker
+    runtime: docker
+    repo: https://github.com/ziad1100/pizza-project
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    startCommand: node server/dist/worker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pizzaproject-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedis:
+          name: pizzaproject-redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  # ── One-off menu seed (run after the DB is provisioned) ───────────────────
+  # Safe in production: seeds the real menu/catalog only — no demo users,
+  # orders or carts; SEED_RESET is hard-blocked when NODE_ENV=production.
+  - type: job
+    name: pizzaproject-seed
+    runtime: docker
+    repo: https://github.com/ziad1100/pizza-project
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    startCommand: node server/dist/seed.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pizzaproject-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedis:
+          name: pizzaproject-redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false

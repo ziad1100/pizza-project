@@ -50,6 +50,8 @@ const env = {
   accessTokenExpires: process.env.ACCESS_TOKEN_EXPIRES || '15m',
   refreshTokenExpires: process.env.REFRESH_TOKEN_EXPIRES || '7d',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
+  // 'lax' (same-site) or 'none' (frontend + API on different domains).
+  cookieSameSite: (process.env.COOKIE_SAMESITE || 'lax') as 'lax' | 'none',
 
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
 

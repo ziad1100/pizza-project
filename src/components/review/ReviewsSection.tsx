@@ -14,6 +14,7 @@ import {
 } from '@/api/reviews';
 import { useAppSelector } from '@/hooks';
 import type { Review } from '@/types';
+import { QuickReview } from '@/components/review/QuickReview';
 import { RatingSummary } from '@/components/review/RatingSummary';
 import { ReviewCard } from '@/components/review/ReviewCard';
 import { ReviewForm, type ReviewFormValues } from '@/components/review/ReviewForm';
@@ -124,6 +125,11 @@ export function ReviewsSection({ productId, productName }: { productId: string; 
         <p className="mb-4 text-sm text-red-400">{t('review.submitFailed')}</p>
       ) : null}
 
+      {/* Instant 5-star + comment rating — lives on the meal page, not the cards. */}
+      <div className="mb-6">
+        <QuickReview productId={productId} />
+      </div>
+
       {summary ? <RatingSummary summary={summary} className="mb-6" /> : null}
 
       {reviews.isLoading ? (
@@ -134,6 +140,7 @@ export function ReviewsSection({ productId, productName }: { productId: string; 
         </div>
       ) : items.length > 0 ? (
         <>
+          <h3 className="mb-3 text-lg font-extrabold text-night-100">{t('review.previousReviews')}</h3>
           <div className="space-y-3">
             {items.map((r) => (
               <ReviewCard

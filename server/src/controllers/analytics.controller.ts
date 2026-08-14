@@ -1,10 +1,13 @@
 import type { Request, Response } from 'express';
 import * as analyticsRepo from '../db/analytics';
+import * as ordersRepo from '../db/orders';
+import * as productsRepo from '../db/products';
 import * as reviewsRepo from '../db/reviews';
 import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
-import { ORDER_STATUS } from '../constants';
+import { ORDER_STATUS, ORDER_STATUS_LABELS } from '../constants';
+import { cache, resourceKeys } from '../services/cache';
 import * as XLSX from 'xlsx';
 
 export const periodWindows = (now = new Date()): { todayStart: Date; weekStart: Date; monthStart: Date } => {
@@ -71,19 +74,37 @@ export const day = asyncHandler(async (req: Request, res: Response) => {
   res.json(new ApiResponse(200, { date, ...stats }));
 });
 
+/**
+ * Fresh Data: clears the dashboard cache synchronously (so the next dashboard
+ * GET is recomputed from the live database) and reports back. The actual data
+ * is always computed from the DB — the cache layer only holds a 60s snapshot.
+ */
 export const refresh = asyncHandler(async (_req: Request, res: Response) => {
-  res.json(new ApiResponse(200, { ok: true }, 'Dashboard cache invalidated'));
+  const [exact, pattern] = resourceKeys('dashboard');
+  await Promise.all([cache.del(exact), cache.delPattern(pattern)]);
+  res.json(new ApiResponse(200, { ok: true }, 'Dashboard data refreshed'));
+});
+
+/**
+ * Clear Stats: resets ONLY the dashboard statistics/aggregation layer. Business
+ * records (orders, products, categories, customers, reviews) are never deleted.
+ */
+export const clear = asyncHandler(async (_req: Request, res: Response) => {
+  await analyticsRepo.clearSalesStats();
+  res.json(new ApiResponse(200, { ok: true }, 'Dashboard statistics reset'));
 });
 
 // ---------------------------------------------------------------------------
-// Excel export
+// Arabic Excel export
 // ---------------------------------------------------------------------------
 
-const CURRENCY = '#,##0.00 "EGP"';
-const NUMBER = '#,##0';
+const MONEY = '#,##0.00" ج.م"';
+const COUNT = '#,##0';
+const RATING = '0.0';
 
 const headerCell = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '1F2937' } } };
 
+/** Styled worksheet with frozen header + autofilter + RTL-friendly widths. */
 const sheetOf = (rows: (string | number)[][]): XLSX.WorkSheet => {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   for (let c = 0; c < rows[0].length; c++) {
@@ -99,14 +120,23 @@ const sheetOf = (rows: (string | number)[][]): XLSX.WorkSheet => {
   return ws;
 };
 
-const setMoney = (ws: XLSX.WorkSheet, r: number, c: number): void => {
+const setFormat = (ws: XLSX.WorkSheet, r: number, c: number, z: string): void => {
   const cell = ws[XLSX.utils.encode_cell({ r, c })];
-  if (cell && cell.t === 'n') cell.z = CURRENCY;
+  if (cell && cell.t === 'n') cell.z = z;
 };
 
-const setCount = (ws: XLSX.WorkSheet, r: number, c: number): void => {
-  const cell = ws[XLSX.utils.encode_cell({ r, c })];
-  if (cell && cell.t === 'n') cell.z = NUMBER;
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+/** Formats a JS date as `YYYY-MM-DD HH:mm` (local time). */
+const fmtDateTime = (d: Date): string =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+const fmtDate = (d: Date): string => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+const REVIEW_STATUS_AR: Record<string, string> = {
+  pending: 'قيد المراجعة',
+  published: 'منشور',
+  hidden: 'مخفي',
 };
 
 export const exportStats = asyncHandler(async (req: Request, res: Response) => {
@@ -119,176 +149,258 @@ export const exportStats = asyncHandler(async (req: Request, res: Response) => {
   const todayIso = iso(today);
   const selectedDate = date && date <= todayIso ? date : todayIso;
 
-  // Use the same calendar windows as the dashboard (periodWindows) so the
-  // exported Today / This Week / This Month figures match the on-screen cards.
+  // Same calendar windows as the dashboard so exported figures match the screen.
   const { todayStart, weekStart, monthStart } = periodWindows();
 
-  const [totals, recent, byStatus, top, todayStats, weekStats, monthStats, trend, dayStats, categoryData, reviewData, customersWithOrders] =
-    await Promise.all([
-      analyticsRepo.totals(),
-      analyticsRepo.recent(daysAgo(30)),
-      analyticsRepo.statusBreakdown(),
-      analyticsRepo.topProducts(),
-      analyticsRepo.periodStats(todayStart),
-      analyticsRepo.periodStats(weekStart),
-      analyticsRepo.periodStats(monthStart),
-      analyticsRepo.trend(daysAgo(30)),
-      analyticsRepo.dayStats(selectedDate),
-      analyticsRepo.categorySales(),
-      reviewsRepo.adminStats(),
-      analyticsRepo.customersWithOrders(),
-    ]);
+  const [
+    totals,
+    recent,
+    byStatus,
+    top,
+    todayStats,
+    weekStats,
+    monthStats,
+    trend,
+    dayStatsData,
+    categoryData,
+    reviewData,
+    ordersPage,
+    productsPage,
+    customers,
+    reviewsPage,
+  ] = await Promise.all([
+    analyticsRepo.totals(),
+    analyticsRepo.recent(daysAgo(30)),
+    analyticsRepo.statusBreakdown(),
+    analyticsRepo.topProducts(),
+    analyticsRepo.periodStats(todayStart),
+    analyticsRepo.periodStats(weekStart),
+    analyticsRepo.periodStats(monthStart),
+    analyticsRepo.trend(daysAgo(30)),
+    analyticsRepo.dayStats(selectedDate),
+    analyticsRepo.categorySales(),
+    reviewsRepo.adminStats(),
+    ordersRepo.adminList(1, 500, '', ''),
+    productsRepo.adminList(1, 1000, '', '', ''),
+    analyticsRepo.customersBreakdown(),
+    reviewsRepo.adminList(1, 500, '', '', '', '', '', 'newest', ''),
+  ]);
 
+  const reviewStats = reviewData as Record<string, unknown>;
   const periodMap = [
-    { key: 'today', label: 'Today', stats: todayStats },
-    { key: 'week', label: 'This Week', stats: weekStats },
-    { key: 'month', label: 'This Month', stats: monthStats },
+    { key: 'today', label: 'اليوم', stats: todayStats },
+    { key: 'week', label: 'هذا الأسبوع', stats: weekStats },
+    { key: 'month', label: 'هذا الشهر', stats: monthStats },
   ];
 
   const wb = XLSX.utils.book_new();
+  // Right-to-left workbook so Arabic content lays out correctly in Excel.
+  wb.Workbook = { Views: [{ RTL: true }] };
 
-  // Sheet 1 — Dashboard Summary
+  // ---- Sheet 1: ملخص لوحة التحكم (المؤشر | القيمة) ----
   const summaryRows: (string | number)[][] = [
-    ['Metric', 'Value', 'Period'],
-    ['Total Revenue', totals.revenue, 'All Time'],
-    ['Net Revenue', totals.netRevenue, 'All Time'],
-    ['Gross Revenue', totals.grossRevenue, 'All Time'],
-    ['Discounts', totals.discounts, 'All Time'],
-    ['Delivery Fees', totals.deliveryFees, 'All Time'],
-    ['Total Orders', totals.orders, 'All Time'],
-    ['Completed Orders', totals.completedOrders, 'All Time'],
-    ['Cancelled Orders', totals.cancelledOrders, 'All Time'],
-    ['Refunded Orders', totals.refundedOrders, 'All Time'],
-    ['Complimentary Orders', totals.complimentaryOrders, 'All Time'],
-    ['Pending Orders', byStatus.find((s) => s._id === 'pending')?.count ?? 0, 'All Time'],
-    ['Total Customers', totals.customers, 'All Time'],
-    ['Total Products', totals.products, 'All Time'],
-    ['Recent Revenue', recent.revenue, 'Last 30 Days'],
-    ['Recent Orders', recent.orders, 'Last 30 Days'],
-    ['Recent Customers', recent.customers, 'Last 30 Days'],
+    ['المؤشر', 'القيمة'],
+    ['الإيرادات الإجمالية', totals.revenue],
+    ['صافي الإيرادات', totals.netRevenue],
+    ['إجمالي الإيرادات', totals.grossRevenue],
+    ['الخصومات', totals.discounts],
+    ['رسوم التوصيل', totals.deliveryFees],
+    ['إجمالي الطلبات', totals.orders],
+    ['الطلبات المكتملة', totals.completedOrders],
+    ['الطلبات الملغاة', totals.cancelledOrders],
+    ['الطلبات المستردة', totals.refundedOrders],
+    ['الطلبات المجانية', totals.complimentaryOrders],
+    ['الطلبات المعلقة', byStatus.find((s) => s._id === 'pending')?.count ?? 0],
+    ['إجمالي العملاء', totals.customers],
+    ['إجمالي المنتجات', totals.products],
+    ['إيرادات آخر ٣٠ يوم', recent.revenue],
+    ['طلبات آخر ٣٠ يوم', recent.orders],
+    ['عملاء جدد آخر ٣٠ يوم', recent.customers],
+    ['إجمالي التقييمات', Number(reviewStats.total || 0)],
+    ['متوسط التقييم', Number(reviewStats.average || 0)],
+    ['تقييمات اليوم', Number(reviewStats.today || 0)],
+    ['تقييمات ٥ نجوم', Number(reviewStats.fiveStar || 0)],
+    ['تقييمات نجمة واحدة', Number(reviewStats.oneStar || 0)],
+    [`إيرادات ${periodMap.find((p) => p.key === period)?.label ?? 'اليوم'}`, periodMap.find((p) => p.key === period)?.stats.revenue ?? todayStats.revenue],
+    [`طلبات ${periodMap.find((p) => p.key === period)?.label ?? 'اليوم'}`, periodMap.find((p) => p.key === period)?.stats.orders ?? todayStats.orders],
+    ['إيرادات اليوم المحدد', dayStatsData.revenue],
+    ['طلبات اليوم المحدد', dayStatsData.orders],
   ];
   const summary = sheetOf(summaryRows);
-  for (const r of [1, 2, 3, 4, 5, 14]) setMoney(summary, r, 1);
-  for (const r of [6, 7, 8, 9, 10, 11, 12, 13, 15, 16]) setCount(summary, r, 1);
-  summary['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 16 }];
-  XLSX.utils.book_append_sheet(wb, summary, 'Dashboard Summary');
+  const moneyRows = [1, 2, 3, 4, 5, 14, 22, 24];
+  for (let r = 1; r < summaryRows.length; r++) setFormat(summary, r, 1, moneyRows.includes(r) ? MONEY : RATING);
+  for (const r of [6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 20, 21, 23, 25]) setFormat(summary, r, 1, COUNT);
+  summary['!cols'] = [{ wch: 30 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, summary, 'ملخص لوحة التحكم');
 
-  // Sheet 2 — Period Sales
-  const periodRows: (string | number)[][] = [
-    ['Period', 'Revenue', 'Orders', 'Units Sold', 'Customers'],
-    ['All Time', totals.revenue, totals.orders, top.reduce((a, p) => a + Number(p.count), 0), totals.customers],
+  // ---- Sheet 2: الطلبات (real orders) ----
+  const orderRows: (string | number)[][] = [
+    ['رقم الطلب', 'اسم العميل', 'رقم الهاتف', 'المنتجات', 'الإجمالي', 'حالة الطلب', 'تاريخ الطلب', 'وقت الطلب'],
   ];
-  for (const p of periodMap) {
-    periodRows.push([p.label, p.stats.revenue, p.stats.orders, p.stats.unitsSold, p.stats.customers]);
+  for (const o of ordersPage.items) {
+    const items = (Array.isArray(o.items) ? o.items : []) as Array<{ name: string; qty: number }>;
+    const productsText = items.map((i) => `${i.name} × ${i.qty}`).join('\n');
+    const created = new Date(String(o.createdAt ?? ''));
+    orderRows.push([
+      String(o.orderNo ?? ''),
+      String(o.customerName ?? ''),
+      String(o.phone ?? ''),
+      productsText,
+      Number(o.total) || 0,
+      ORDER_STATUS_LABELS[String(o.status)]?.[0] ?? String(o.status ?? ''),
+      fmtDate(created),
+      fmtDateTime(created).slice(11),
+    ]);
   }
-  const periodWs = sheetOf(periodRows);
-  for (let r = 1; r < periodRows.length; r++) {
-    setMoney(periodWs, r, 1);
-    for (const c of [2, 3, 4]) setCount(periodWs, r, c);
-  }
-  periodWs['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
-  XLSX.utils.book_append_sheet(wb, periodWs, 'Period Sales');
+  const ordersWs = sheetOf(orderRows);
+  for (let r = 1; r < orderRows.length; r++) setFormat(ordersWs, r, 4, MONEY);
+  ordersWs['!cols'] = [{ wch: 16 }, { wch: 22 }, { wch: 16 }, { wch: 34 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 12 }];
+  XLSX.utils.book_append_sheet(wb, ordersWs, 'الطلبات');
 
-  // Sheet 3 — Daily Trend
-  const trendRows: (string | number)[][] = [['Date', 'Revenue', 'Orders', 'Units Sold']];
-  for (const d of trend) {
-    trendRows.push([String(d._id), Number(d.revenue) || 0, Number(d.orders) || 0, Number(d.unitsSold) || 0]);
-  }
-  const trendWs = sheetOf(trendRows);
-  for (let r = 1; r < trendRows.length; r++) {
-    setMoney(trendWs, r, 1);
-    for (const c of [2, 3]) setCount(trendWs, r, c);
-  }
-  trendWs['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 14 }];
-  XLSX.utils.book_append_sheet(wb, trendWs, 'Daily Trend');
-
-  // Sheet 4 — Orders
-  const statusRows: (string | number)[][] = [['Status', 'Count']];
-  const statusOrder = ['pending', 'completed', 'cancelled', 'refunded', 'complimentary'];
-  for (const s of statusOrder) {
-    const found = byStatus.find((x) => x._id === s);
-    statusRows.push([s, found?.count ?? 0]);
-  }
-  const dayRows: (string | number)[][] = [
-    ['Selected Day Stats'],
-    ['Day', selectedDate],
-    ['Orders', dayStats.orders],
-    ['Completed', dayStats.completed],
-    ['Cancelled', dayStats.cancelled],
-    ['Refunded', dayStats.refunded],
-    ['Complimentary', dayStats.complimentary],
-    ['Revenue', dayStats.revenue],
+  // ---- Sheet 3: المنتجات (real products) ----
+  const productRows: (string | number)[][] = [
+    ['معرّف المنتج', 'اسم المنتج', 'القسم', 'السعر', 'التقييم', 'عدد التقييمات', 'حالة التوفر', 'تاريخ الإضافة'],
   ];
-  const ordersWs = sheetOf(statusRows);
-  for (let r = 1; r < statusRows.length; r++) setCount(ordersWs, r, 1);
-  XLSX.utils.sheet_add_aoa(ordersWs, [['']], { origin: statusRows.length });
-  const dayOrigin = statusRows.length + 1;
-  XLSX.utils.sheet_add_aoa(ordersWs, dayRows, { origin: dayOrigin });
-  for (const r of [dayOrigin + 2, dayOrigin + 3, dayOrigin + 4, dayOrigin + 5, dayOrigin + 6]) {
-    const cell = ordersWs[XLSX.utils.encode_cell({ r, c: 1 })];
-    if (cell && cell.t === 'n') cell.z = NUMBER;
-  }
-  setMoney(ordersWs, dayOrigin + 7, 1);
-  ordersWs['!cols'] = [{ wch: 24 }, { wch: 14 }];
-  XLSX.utils.book_append_sheet(wb, ordersWs, 'Orders');
-
-  // Sheet 5 — Products
-  const productRows: (string | number)[][] = [['Product', 'Period', 'Units', 'Revenue']];
-  for (const p of top) {
-    productRows.push([String(p._id), 'All Time', Number(p.count) || 0, Number(p.revenue) || 0]);
-  }
-  for (const p of periodMap) {
-    for (const tp of p.stats.topProducts) {
-      productRows.push([tp.name, p.label, tp.count, tp.revenue]);
-    }
+  for (const p of productsPage.items) {
+    const cat = (p.category as { name?: string; nameEn?: string } | null) ?? null;
+    productRows.push([
+      String(p._id ?? ''),
+      String(p.name ?? ''),
+      cat?.name ?? cat?.nameEn ?? '',
+      Number(p.basePrice) || 0,
+      Number(p.rating) || 0,
+      Number(p.reviewsCount) || 0,
+      p.isAvailable ? 'متاح' : 'غير متاح',
+      p.createdAt ? fmtDate(new Date(String(p.createdAt))) : '',
+    ]);
   }
   const productWs = sheetOf(productRows);
   for (let r = 1; r < productRows.length; r++) {
-    setCount(productWs, r, 2);
-    setMoney(productWs, r, 3);
+    setFormat(productWs, r, 3, MONEY);
+    setFormat(productWs, r, 4, RATING);
+    setFormat(productWs, r, 5, COUNT);
   }
-  productWs['!cols'] = [{ wch: 34 }, { wch: 14 }, { wch: 10 }, { wch: 16 }];
-  XLSX.utils.book_append_sheet(wb, productWs, 'Products');
+  productWs['!cols'] = [{ wch: 40 }, { wch: 26 }, { wch: 20 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, productWs, 'المنتجات');
 
-  // Sheet 6 — Categories
-  const categoryRows: (string | number)[][] = [['Category (AR)', 'Category (EN)', 'Units', 'Revenue']];
-  for (const c of categoryData) {
-    categoryRows.push([String(c.name), String(c.nameEn ?? ''), Number(c.units) || 0, Number(c.revenue) || 0]);
-  }
-  const categoryWs = sheetOf(categoryRows);
-  for (let r = 1; r < categoryRows.length; r++) {
-    setCount(categoryWs, r, 2);
-    setMoney(categoryWs, r, 3);
-  }
-  categoryWs['!cols'] = [{ wch: 26 }, { wch: 26 }, { wch: 10 }, { wch: 16 }];
-  XLSX.utils.book_append_sheet(wb, categoryWs, 'Categories');
-
-  // Sheet 7 — Customers & Reviews
-  const reviewStats = reviewData as Record<string, unknown>;
+  // ---- Sheet 4: العملاء (real customers) ----
   const customerRows: (string | number)[][] = [
-    ['Metric', 'Value'],
-    ['Total Customers', totals.customers],
-    ['New Customers (30 days)', recent.customers],
-    ['Customers With Orders', customersWithOrders],
-    ['Total Reviews', Number(reviewStats.total || 0)],
-    ['Published Meal Reviews', Number(reviewStats.published || 0)],
-    ['Restaurant Reviews', Number(reviewStats.restaurantTotal || 0)],
-    ['Average Meal Rating', Number(reviewStats.average || 0)],
-    ['Average Restaurant Rating', Number(reviewStats.restaurantAverage || 0)],
-    ['5-Star Reviews', Number(reviewStats.fiveStar || 0)],
-    ['1-Star Reviews', Number(reviewStats.oneStar || 0)],
-    ['Reviews Today', Number(reviewStats.today || 0)],
+    ['اسم العميل', 'رقم الهاتف', 'البريد الإلكتروني', 'عدد الطلبات', 'إجمالي الإنفاق', 'تاريخ التسجيل'],
   ];
+  for (const c of customers) {
+    customerRows.push([
+      String(c.fullName ?? ''),
+      String(c.phone ?? ''),
+      String(c.email ?? ''),
+      Number(c.orders) || 0,
+      Number(c.totalSpent) || 0,
+      c.createdAt ? fmtDate(new Date(String(c.createdAt))) : '',
+    ]);
+  }
   const customerWs = sheetOf(customerRows);
   for (let r = 1; r < customerRows.length; r++) {
-    const cell = customerWs[XLSX.utils.encode_cell({ r, c: 1 })];
-    if (cell && cell.t === 'n' && r !== 7 && r !== 8) cell.z = NUMBER;
+    setFormat(customerWs, r, 3, COUNT);
+    setFormat(customerWs, r, 4, MONEY);
   }
-  customerWs['!cols'] = [{ wch: 30 }, { wch: 16 }];
-  XLSX.utils.book_append_sheet(wb, customerWs, 'Customers & Reviews');
+  customerWs['!cols'] = [{ wch: 26 }, { wch: 16 }, { wch: 30 }, { wch: 14 }, { wch: 18 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, customerWs, 'العملاء');
+
+  // ---- Sheet 5: التقييمات (real reviews) ----
+  const reviewRows: (string | number)[][] = [
+    ['معرّف التقييم', 'اسم العميل', 'الوجبة', 'عدد النجوم', 'التعليق', 'حالة التقييم', 'تاريخ التقييم'],
+  ];
+  for (const r of reviewsPage.items) {
+    const user = (r.user as { fullName?: string } | null) ?? null;
+    const product = (r.product as { name?: string } | null) ?? null;
+    reviewRows.push([
+      String(r._id ?? ''),
+      user?.fullName ?? '',
+      product?.name ?? '',
+      Number(r.rating) || 0,
+      String(r.comment ?? ''),
+      REVIEW_STATUS_AR[String(r.status)] ?? String(r.status ?? ''),
+      r.createdAt ? fmtDate(new Date(String(r.createdAt))) : '',
+    ]);
+  }
+  const reviewWs = sheetOf(reviewRows);
+  for (let r = 1; r < reviewRows.length; r++) setFormat(reviewWs, r, 3, COUNT);
+  reviewWs['!cols'] = [{ wch: 40 }, { wch: 22 }, { wch: 24 }, { wch: 14 }, { wch: 40 }, { wch: 14 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, reviewWs, 'التقييمات');
+
+  // ---- Sheet 6: الإيرادات (daily trend) ----
+  const revenueRows: (string | number)[][] = [['التاريخ', 'الإيرادات', 'عدد الطلبات', 'الوحدات المباعة']];
+  for (const d of trend) {
+    revenueRows.push([String(d._id), Number(d.revenue) || 0, Number(d.orders) || 0, Number(d.unitsSold) || 0]);
+  }
+  const revenueWs = sheetOf(revenueRows);
+  for (let r = 1; r < revenueRows.length; r++) {
+    setFormat(revenueWs, r, 1, MONEY);
+    setFormat(revenueWs, r, 2, COUNT);
+    setFormat(revenueWs, r, 3, COUNT);
+  }
+  revenueWs['!cols'] = [{ wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, revenueWs, 'الإيرادات');
+
+  // ---- Sheet 7: المبيعات (period sales) ----
+  const salesRows: (string | number)[][] = [
+    ['الفترة', 'الإيرادات', 'الطلبات', 'الوحدات المباعة', 'العملاء'],
+    ['كل الفترات', totals.revenue, totals.orders, top.reduce((a, p) => a + Number(p.count), 0), totals.customers],
+  ];
+  for (const p of periodMap) {
+    salesRows.push([p.label, p.stats.revenue, p.stats.orders, p.stats.unitsSold, p.stats.customers]);
+  }
+  const salesWs = sheetOf(salesRows);
+  for (let r = 1; r < salesRows.length; r++) {
+    setFormat(salesWs, r, 1, MONEY);
+    for (const c of [2, 3, 4]) setFormat(salesWs, r, c, COUNT);
+  }
+  salesWs['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, salesWs, 'المبيعات');
+
+  // ---- Sheet 8: التحليلات (status + top products + categories) ----
+  const statusRows: (string | number)[][] = [['حالة الطلب', 'العدد']];
+  for (const s of byStatus) {
+    statusRows.push([ORDER_STATUS_LABELS[s._id]?.[0] ?? s._id, s.count]);
+  }
+  const topRows: (string | number)[][] = [['المنتج', 'الكمية', 'الإيرادات']];
+  for (const p of top) {
+    topRows.push([String(p._id), Number(p.count) || 0, Number(p.revenue) || 0]);
+  }
+  const catRows: (string | number)[][] = [['القسم', 'الوحدات', 'الإيرادات']];
+  for (const c of categoryData) {
+    catRows.push([String(c.name), Number(c.units) || 0, Number(c.revenue) || 0]);
+  }
+
+  const analyticsAoa: (string | number)[][] = [...statusRows, [''], ['الأكثر مبيعاً'], ...topRows.slice(1), [''], ['المبيعات حسب القسم'], ...catRows.slice(1)];
+  const analyticsWs = XLSX.utils.aoa_to_sheet(analyticsAoa);
+  for (let c = 0; c < 3; c++) {
+    const addr = XLSX.utils.encode_cell({ r: 0, c });
+    if (analyticsWs[addr]) analyticsWs[addr].s = headerCell;
+  }
+  const sectionTitle = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '374151' } } };
+  const titleRowStatus = statusRows.length;
+  const titleRowTop = statusRows.length + 2;
+  const titleRowCat = statusRows.length + 2 + topRows.length;
+  for (const r of [titleRowStatus, titleRowTop, titleRowCat]) {
+    const addr = XLSX.utils.encode_cell({ r, c: 0 });
+    if (analyticsWs[addr]) analyticsWs[addr].s = sectionTitle;
+  }
+  // Format numeric columns: counts in col 1 for status/top, money in col 2 for top/categories.
+  for (let r = 1; r < statusRows.length; r++) setFormat(analyticsWs, r, 1, COUNT);
+  for (let r = 0; r < topRows.length - 1; r++) {
+    const rr = statusRows.length + 2 + r;
+    setFormat(analyticsWs, rr, 1, COUNT);
+    setFormat(analyticsWs, rr, 2, MONEY);
+  }
+  for (let r = 0; r < catRows.length - 1; r++) {
+    const rr = statusRows.length + 2 + topRows.length + r;
+    setFormat(analyticsWs, rr, 1, COUNT);
+    setFormat(analyticsWs, rr, 2, MONEY);
+  }
+  analyticsWs['!cols'] = [{ wch: 24 }, { wch: 14 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, analyticsWs, 'التحليلات');
 
   // Meaningful dynamic filename: plain date for Today, date range otherwise.
-  // e.g. dashboard-report-2026-08-12.xlsx / dashboard-report-2026-08-01-to-2026-08-12.xlsx
   const filename =
     period === 'today'
       ? `dashboard-report-${selectedDate}.xlsx`

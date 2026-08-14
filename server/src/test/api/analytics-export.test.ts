@@ -36,20 +36,21 @@ describe('analytics export', () => {
 
     const wb = XLSX.read(body, { type: 'buffer' });
     const sheets = wb.SheetNames;
-    expect(sheets).toContain('Dashboard Summary');
-    expect(sheets).toContain('Period Sales');
-    expect(sheets).toContain('Daily Trend');
-    expect(sheets).toContain('Orders');
-    expect(sheets).toContain('Products');
-    expect(sheets).toContain('Categories');
-    expect(sheets).toContain('Customers & Reviews');
+    expect(sheets).toContain('ملخص لوحة التحكم');
+    expect(sheets).toContain('الطلبات');
+    expect(sheets).toContain('المنتجات');
+    expect(sheets).toContain('العملاء');
+    expect(sheets).toContain('التقييمات');
+    expect(sheets).toContain('الإيرادات');
+    expect(sheets).toContain('المبيعات');
+    expect(sheets).toContain('التحليلات');
 
-    const summary = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Dashboard Summary']);
+    const summary = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['ملخص لوحة التحكم']);
     const metrics = summary.map((r) => Object.values(r)[0]);
-    expect(metrics).toContain('Total Revenue');
-    expect(metrics).toContain('Total Orders');
-    expect(metrics).toContain('Total Customers');
-    expect(metrics).toContain('Total Products');
+    expect(metrics).toContain('الإيرادات الإجمالية');
+    expect(metrics).toContain('إجمالي الطلبات');
+    expect(metrics).toContain('إجمالي العملاء');
+    expect(metrics).toContain('إجمالي المنتجات');
   });
 
   it('rejects invalid date and period', async () => {
@@ -66,8 +67,8 @@ describe('analytics export', () => {
     await query('DELETE FROM reviews');
     const res = await getXlsx(bearer(admin.id)).expect(200);
     const wb = XLSX.read(res.body as Buffer, { type: 'buffer' });
-    const summary = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Dashboard Summary']);
-    const rev = summary.find((r) => Object.values(r)[0] === 'Total Revenue');
+    const summary = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['ملخص لوحة التحكم']);
+    const rev = summary.find((r) => Object.values(r)[0] === 'الإيرادات الإجمالية');
     expect(rev ? Object.values(rev)[1] : 0).toBe(0);
   });
 
@@ -91,11 +92,11 @@ describe('analytics export', () => {
       /dashboard-report-\d{4}-\d{2}-\d{2}-to-\d{4}-\d{2}-\d{2}\.xlsx/,
     );
     const wb = XLSX.read(res.body as Buffer, { type: 'buffer' });
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['Period Sales']);
-    const weekRow = rows.find((r) => Object.values(r)[0] === 'This Week');
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets['المبيعات']);
+    const weekRow = rows.find((r) => Object.values(r)[0] === 'هذا الأسبوع');
     expect(Number(Object.values(weekRow ?? {})[1])).toBe(periodOverview.week.revenue);
     expect(Number(Object.values(weekRow ?? {})[2])).toBe(periodOverview.week.orders);
-    const todayRow = rows.find((r) => Object.values(r)[0] === 'Today');
+    const todayRow = rows.find((r) => Object.values(r)[0] === 'اليوم');
     expect(Number(Object.values(todayRow ?? {})[1])).toBe(periodOverview.today.revenue);
 
     // Today: plain date filename.

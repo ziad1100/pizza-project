@@ -1,5 +1,3 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import express from 'express';
 import request from 'supertest';
 import * as XLSX from 'xlsx';
@@ -27,8 +25,8 @@ app.use('/api/v1/analytics', analyticsRoutes);
       });
     console.log('status:', exportRes.status, '| bytes:', (exportRes.body as Buffer).length);
     const wb = XLSX.read(exportRes.body as Buffer, { type: 'buffer' });
-    console.log('sheets ok:', wb.SheetNames.length === 7);
-    console.log('Orders sheet:', JSON.stringify(XLSX.utils.sheet_to_json(wb.Sheets['Orders'], { header: 1, defval: '' })));
+    console.log('sheets ok:', wb.SheetNames.length === 8);
+    console.log('Orders sheet:', JSON.stringify(XLSX.utils.sheet_to_json(wb.Sheets['الطلبات'], { header: 1, defval: '' })));
   } catch (e) {
     console.log('SMOKE ERROR:', (e as Error).message);
     process.exitCode = 1;

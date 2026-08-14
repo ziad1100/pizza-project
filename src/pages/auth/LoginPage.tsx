@@ -12,7 +12,7 @@ import { getCart } from '@/api/cart';
 import { setCredentials } from '@/store/slices/authSlice';
 import { addLine } from '@/store/slices/cartSlice';
 import { useAppDispatch } from '@/hooks';
-import { getErrorMessage } from '@/lib/api';
+import { apiBaseUrl, getErrorMessage } from '@/lib/api';
 import { postAuthTarget } from '@/lib/authRedirect';
 import { Button } from '@/components/ui/Button';
 import { FieldError, Input, Label, PasswordInput } from '@/components/ui/Input';
@@ -36,15 +36,20 @@ export function LoginPage() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const [serverError, setServerError] = useState('');
-  const [oauthError, setOauthError] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
 
-  useEffect(() => {
+  // Derived from the URL — no effect needed for the message itself.
+  const oauthError = (() => {
     const error = searchParams.get('error');
-    if (error === 'deactivated') setOauthError(t('auth.accountDeactivated'));
-    else if (error === 'google' || error === 'facebook') setOauthError(t('auth.socialLoginFailed'));
-    if (error) setSearchParams({}, { replace: true });
-  }, [searchParams, setSearchParams, t]);
+    if (error === 'deactivated') return t('auth.accountDeactivated');
+    if (error === 'google' || error === 'facebook') return t('auth.socialLoginFailed');
+    return '';
+  })();
+
+  // Only clean the marker from the URL (a navigation, not a state update).
+  useEffect(() => {
+    if (searchParams.get('error')) setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const { data: providers } = useQuery({
     queryKey: ['social-providers'],
@@ -140,7 +145,7 @@ export function LoginPage() {
             <div className="space-y-3">
               {providers?.google ? (
                 <a
-                  href="/api/v1/auth/google"
+                  href={`${apiBaseUrl}/auth/google`}
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-night-700 text-sm font-semibold text-night-100 transition-colors hover:border-brand-500 hover:text-brand-400"
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -154,7 +159,7 @@ export function LoginPage() {
               ) : null}
               {providers?.facebook ? (
                 <a
-                  href="/api/v1/auth/facebook"
+                  href={`${apiBaseUrl}/auth/facebook`}
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-night-700 text-sm font-semibold text-night-100 transition-colors hover:border-brand-500 hover:text-brand-400"
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">

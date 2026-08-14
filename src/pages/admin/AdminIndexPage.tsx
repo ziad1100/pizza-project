@@ -2,13 +2,14 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CalendarDays, Download, Package, RefreshCw, ShoppingBag, Star, TrendingUp, Users } from 'lucide-react';
+import { Banknote, CalendarDays, Download, Eraser, Package, RefreshCw, ShoppingBag, Star, TrendingUp, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { adminListOrders, adminReviewStats, exportDashboard, getDashboard, getDashboardDay, refreshDashboard } from '@/api/admin';
+import { adminListOrders, adminReviewStats, clearDashboardStats, exportDashboard, getDashboard, getDashboardDay, refreshDashboard } from '@/api/admin';
 import { getErrorMessage } from '@/lib/api';
 import { Card, CardContent, EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { PageHeader, StatusBadge, TableWrap, Td, Th } from '@/components/admin/primitives';
 import { cn, formatPrice } from '@/lib/utils';
 
@@ -43,11 +44,36 @@ export function AdminIndexPage() {
         queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] }),
         queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
         queryClient.invalidateQueries({ queryKey: ['admin', 'reviews'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'day'] }),
       ]);
       toast.success(t('admin.refreshSuccess'));
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
+    onError: () => toast.error(t('admin.refreshError')),
   });
+
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [resetTyped, setResetTyped] = useState('');
+
+  const clearMutation = useMutation({
+    mutationFn: clearDashboardStats,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'day'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'reviews'] }),
+      ]);
+      toast.success(t('admin.clearStatsSuccess'));
+      setConfirmClear(false);
+      setResetTyped('');
+    },
+    onError: () => toast.error(t('admin.clearStatsError')),
+  });
+
+  const closeClearModal = () => {
+    setConfirmClear(false);
+    setResetTyped('');
+  };
 
   const exportMutation = useMutation({
     mutationFn: () => exportDashboard(day, period),
@@ -146,6 +172,17 @@ export function AdminIndexPage() {
             <Button
               variant="outline"
               size="sm"
+              loading={clearMutation.isPending}
+              disabled={clearMutation.isPending}
+              onClick={() => setConfirmClear(true)}
+              title={t('admin.clearStatsTitle')}
+            >
+              <Eraser className="h-4 w-4" />
+              {t('admin.clearStats')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               loading={exportMutation.isPending}
               disabled={exportMutation.isPending}
               onClick={() => exportMutation.mutate()}
@@ -160,8 +197,8 @@ export function AdminIndexPage() {
               disabled={refreshMutation.isPending}
               onClick={() => refreshMutation.mutate()}
             >
-              <RefreshCw className="h-4 w-4" />
-              {t('admin.refresh')}
+              <RefreshCw className={cn('h-4 w-4', refreshMutation.isPending && 'animate-spin')} />
+              {refreshMutation.isPending ? t('admin.refreshing') : t('admin.refresh')}
             </Button>
           </div>
         }
@@ -433,6 +470,58 @@ export function AdminIndexPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Modal open={confirmClear} onClose={closeClearModal} title={t('admin.clearStatsTitle')} size="sm">
+        <div className="mb-4 rounded-xl border border-red-500/25 bg-red-500/10 p-4 text-sm leading-relaxed text-night-200">
+          <p className="mb-2 font-bold text-red-400">⚠️ {t('admin.clearStatsWarning')}</p>
+          <p>{t('admin.clearStatsConfirm')}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div>
+              <p className="mb-1 text-xs font-bold text-red-400">{t('admin.clearStatsZeroTitle')}</p>
+              <ul className="list-inside list-disc space-y-0.5 text-xs text-night-300">
+                {(t('admin.clearStatsZeroItems', { returnObjects: true }) as unknown as string[]).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1 text-xs font-bold text-emerald-400">{t('admin.clearStatsKeepTitle')}</p>
+              <ul className="list-inside list-disc space-y-0.5 text-xs text-night-300">
+                {(t('admin.clearStatsKeepItems', { returnObjects: true }) as unknown as string[]).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div className="mb-5">
+          <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-night-500">
+            {t('admin.clearStatsTypeHint')}
+          </label>
+          <Input
+            value={resetTyped}
+            onChange={(e) => setResetTyped(e.target.value)}
+            placeholder="RESET"
+            dir="ltr"
+            className="h-10 w-full font-mono text-center tracking-[0.3em]"
+            autoComplete="off"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={closeClearModal} disabled={clearMutation.isPending}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            loading={clearMutation.isPending}
+            disabled={resetTyped.trim().toUpperCase() !== 'RESET'}
+            onClick={() => clearMutation.mutate()}
+          >
+            {t('admin.clearStats')}
+          </Button>
+        </div>
+      </Modal>
 
       <div className="mt-6">
         <PageHeader title={t('admin.recentOrders')} />
