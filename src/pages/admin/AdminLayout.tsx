@@ -6,6 +6,7 @@ import {
   Boxes,
   ChevronRight,
   FileText,
+  Home,
   Image as ImageIcon,
   Images,
   Languages,
@@ -37,7 +38,10 @@ import { cn } from '@/lib/utils';
 const navGroups: { label: string; items: { to: string; icon: typeof LayoutDashboard; label: string; end?: boolean }[] }[] = [
   {
     label: 'admin.nav.overview',
-    items: [{ to: '/admin', icon: LayoutDashboard, label: 'admin.nav.dashboard', end: true }],
+    items: [
+      { to: '/', icon: Home, label: 'nav.home', end: true },
+      { to: '/admin', icon: LayoutDashboard, label: 'admin.nav.dashboard', end: true },
+    ],
   },
   {
     label: 'admin.nav.catalog',

@@ -114,7 +114,11 @@ export const listByProduct = async (
 };
 
 export const restaurantStats = async (): Promise<Record<string, unknown>> => {
-  const rows = await summaryAggs(`r."reviewType" = 'restaurant' AND r.status = 'published'`, []);
+  // Overall customer rating = average over EVERY published review (meal quick
+  // reviews publish instantly, restaurant experience reviews after moderation).
+  // Kept in one aggregated query — no N+1, and new reviews are reflected as
+  // soon as they are published (the endpoint cache is invalidated on create).
+  const rows = await summaryAggs(`r.status = 'published'`, []);
   return rows;
 };
 

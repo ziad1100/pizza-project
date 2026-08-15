@@ -22,6 +22,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/server/src/database/migrations ./server/src/database/migrations
+# Needed by the seed: it resolves product photo URLs from public/images/products.
+COPY --from=build /app/public ./public
 COPY server/.env.example ./server/.env.example
 
 RUN mkdir -p /app/server/uploads && chown node:node /app/server/uploads

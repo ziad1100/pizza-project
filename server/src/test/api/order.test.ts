@@ -271,6 +271,31 @@ describe('create order', () => {
     expect(stats).toMatchObject({ orders: 1 });
     expect(Number(stats?.revenue)).toBe(145);
   });
+
+  it('keeps the original price on existing orders after the product price changes', async () => {
+    const { product } = await setupCatalog();
+    const user = await createUser();
+
+    // Order placed while the product costs 120 EGP.
+    const first = await api.post(ORDERS).set(bearer(user.id)).send(orderBody(toId(product._id)));
+    expect(first.status).toBe(201);
+    expect(first.body.data.subtotal).toBe(120);
+
+    // Admin raises the price to 200 EGP.
+    await productsRepo.update(toId(product._id), { basePrice: 200 });
+
+    // New orders use the new server-side price.
+    const second = await api.post(ORDERS).set(bearer(user.id)).send(orderBody(toId(product._id)));
+    expect(second.status).toBe(201);
+    expect(second.body.data.subtotal).toBe(200);
+
+    // The original order snapshot is untouched.
+    const stored = await query<Record<string, unknown>>(
+      `SELECT subtotal FROM orders WHERE id = $1::uuid`,
+      [first.body.data._id],
+    );
+    expect(Number(stored[0]?.subtotal)).toBe(120);
+  });
 });
 
 describe('order cancellation', () => {

@@ -11,6 +11,7 @@ import { ReviewPrompt } from '@/components/review/ReviewPrompt';
 import { StarRating } from '@/components/review/StarRating';
 import { Button } from '@/components/ui/Button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/Card';
+import { cn } from '@/lib/utils';
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -117,21 +118,27 @@ export function HomePage() {
           <span className="flex items-center gap-2 text-sm font-semibold text-night-200">
             <span className="flex text-gold-500">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className="h-4 w-4 fill-current" />
+                <Star
+                  key={i}
+                  className={cn(
+                    'h-4 w-4',
+                    i < Math.round(restaurantRating.data?.average ?? 0) ? 'fill-current' : 'text-night-600',
+                  )}
+                />
               ))}
             </span>
-            {t('home.ratingTitle')}
+            {t('review.restaurantRating')}
           </span>
           <span className="hidden text-night-600 sm:block">|</span>
-          <span className="text-sm text-night-400">{t('home.ratingReviews')}</span>
+          <span className="text-sm text-night-400">
+            {restaurantRating.data && restaurantRating.data.total > 0
+              ? t('review.basedOn', { count: restaurantRating.data.total })
+              : t('review.noReviews')}
+          </span>
           {restaurantRating.data && restaurantRating.data.total > 0 ? (
             <span className="flex items-center gap-2 text-sm font-semibold text-night-200">
-              {t('review.restaurantRating')}
               <StarRating value={Math.round(restaurantRating.data.average)} readOnly size="sm" ariaLabel={t('review.restaurantRating')} />
               <span dir="ltr">{restaurantRating.data.average.toFixed(1)}</span>
-              <span className="font-normal text-night-400">
-                {t('review.basedOn', { count: restaurantRating.data.total })}
-              </span>
             </span>
           ) : null}
         </div>
@@ -186,8 +193,12 @@ export function HomePage() {
             <h2 className="text-3xl font-extrabold text-night-50">{t('home.bestSellers')}</h2>
           </div>
           {bestSellers.isLoading ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="aspect-[4/5]" />)}
+            <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="w-[min(92%,26rem)] sm:w-full">
+                  <Skeleton className="aspect-[4/5]" />
+                </div>
+              ))}
             </div>
           ) : bestSellers.isError ? (
             <ErrorState
@@ -197,9 +208,11 @@ export function HomePage() {
               retryLabel={t('misc.retry')}
             />
           ) : (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
               {bestSellers.data?.map((product) => (
-                <ProductCard key={product._id} product={product} />
+                <div key={product._id} className="w-[min(92%,26rem)] sm:w-full">
+                  <ProductCard product={product} />
+                </div>
               ))}
             </div>
           )}

@@ -200,10 +200,15 @@ export function MenuPage() {
   const activeSectionId = activeSection?._id ?? activeSub?.parentId ?? '';
   const categoryName = (c: Category): string => (lang === 'ar' ? c.name : c.nameEn || c.name);
 
+  // Mobile portrait: one product per row, card ~90% of the viewport width and
+  // centered so the qty (+/-) controls never overlap. From sm up the layout
+  // goes back to the multi-column grid (2 / 3 / 4 columns).
   const productGrid = (items: Product[]) => (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {items.map((product) => (
-        <ProductCard key={product._id} product={product} />
+        <div key={product._id} className="w-[min(92%,26rem)] sm:w-full">
+          <ProductCard product={product} />
+        </div>
       ))}
     </div>
   );
@@ -276,9 +281,11 @@ export function MenuPage() {
         ) : null}
 
         {products.isLoading ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-[4/5]" />
+              <div key={i} className="w-[min(92%,26rem)] sm:w-full">
+                <Skeleton className="aspect-[4/5]" />
+              </div>
             ))}
           </div>
         ) : products.isError ? (

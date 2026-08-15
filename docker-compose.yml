@@ -38,6 +38,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    # Idempotent: seeds the menu (categories, products, offers, coupons, banners,
+    # branches, posts, gallery, settings) on first boot, then starts the API.
+    # Skips entirely when data already exists, so restarts are instant.
+    command: sh -c "node server/dist/seed.js && node server/dist/server.js"
     ports:
       - '5000:5000'
     environment:
