@@ -503,8 +503,11 @@ const run = async (): Promise<void> => {
     await disconnectDB();
     return;
   }
-  await ensureRolePermissions();
   await clearTables();
+  // Roles must be (re)created AFTER the wipe — clearTables truncates the roles
+  // table, so syncing before it would leave the DB without any roles (and every
+  // permission-guarded admin endpoint would 403).
+  await ensureRolePermissions();
 
   // Demo users, demo order and demo cart are DEVELOPMENT-only. In production,
   // the menu/catalog seed still runs (that is the real menu), but no demo

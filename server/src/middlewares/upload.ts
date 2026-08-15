@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
@@ -8,7 +9,11 @@ import { cloudinaryConfigured } from '../config/cloudinary';
 import { ApiError } from '../utils/ApiError';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const uploadsDir = path.resolve(__dirname, '../uploads');
+// Serverless (Vercel): the function filesystem is ephemeral, so stage uploads
+// in the writable temp dir. Persistent hosts keep the repo-relative uploads dir.
+export const uploadsDir = process.env.VERCEL === '1'
+  ? path.join(os.tmpdir(), 'orabi-uploads')
+  : path.resolve(__dirname, '../uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
 
 const IMAGE_EXTENSIONS: Record<string, string> = {
