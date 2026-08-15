@@ -44,3 +44,7 @@ server/.env
 backups/
 .vercel
 .env*
+
+# Playwright test artifacts
+playwright-report/
+test-results/

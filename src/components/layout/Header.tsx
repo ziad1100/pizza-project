@@ -67,7 +67,10 @@ export function Header() {
       <div className="container-px flex h-16 items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2" aria-label="ORABI Restaurant">
           <Logo className="h-10 w-10 rounded-xl" />
-          <span className="text-xl font-extrabold tracking-tight text-night-50">
+          {/* Wordmark hidden below 344px: the logo mark + all header buttons
+              (language, theme, cart, hamburger) overflow a 320px viewport
+              otherwise — logo 101px + gap 16px + buttons 195px > 288px. */}
+          <span className="hidden text-xl font-extrabold tracking-tight text-night-50 min-[344px]:inline">
             O<span className="text-brand-500">RABI</span>
           </span>
         </Link>

@@ -17,6 +17,7 @@
     "seed": "npm run seed --workspace server",
     "test": "npm run test --workspace server",
     "test:watch": "npm run test:watch --workspace server",
+    "test:e2e": "playwright test",
     "preview": "vite preview",
     "smoke:ui": "node scripts/smoke_ui.mjs",
     "backup:db": "node scripts/backup-db.mjs",
@@ -49,6 +50,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
