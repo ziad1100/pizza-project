@@ -58,6 +58,17 @@ export const emailJobs = {
         <p style="color:#888;font-size:12px">إذا لم تطلب هذا، تجاهل الرسالة.</p>`),
     },
   }),
+  emailChangeVerification: (to: string, token: string): EmailJob => ({
+    name: 'notification.email-change',
+    data: {
+      to,
+      subject: 'تأكيد تغيير البريد الإلكتروني - مطعم عرابي',
+      html: shellHtml(`
+        <p>لقد طلبت تغيير بريدك الإلكتروني إلى <strong>${to}</strong>. اضغط الزر التالي لتأكيد التغيير:</p>
+        <a href="${env.clientUrl}/admin/account?verify-email=${token}" style="display:inline-block;padding:12px 24px;background:#e31e24;color:#fff;text-decoration:none;border-radius:8px;margin:12px 0">تأكيد تغيير البريد</a>
+        <p style="color:#888;font-size:12px">الرابط صالح لمدة 24 ساعة. إذا لم تطلب هذا، تجاهل الرسالة.</p>`),
+    },
+  }),
   resetOtp: (to: string, code: string): EmailJob => ({
     name: 'notification.reset-otp',
     data: {
@@ -89,6 +100,9 @@ export const enqueueVerificationEmail = (to: string, token: string): Promise<voi
 
 export const enqueuePasswordResetOtp = (to: string, code: string): Promise<void> =>
   enqueueEmail(emailJobs.resetOtp(to, code));
+
+export const enqueueEmailChangeVerification = (to: string, token: string): Promise<void> =>
+  enqueueEmail(emailJobs.emailChangeVerification(to, token));
 
 export const enqueueOrderConfirmation = (to: string, orderNo: string, total: number): Promise<void> =>
   enqueueEmail(emailJobs.orderConfirmation(to, orderNo, total));

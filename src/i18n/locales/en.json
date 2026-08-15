@@ -283,9 +283,23 @@
     "clearStatsWarning": "Are you sure you want to reset the dashboard statistics?",
     "clearStatsConfirm": "All statistics, revenue, profit, delivery fees, orders and every dashboard indicator will be reset to zero.",
     "clearStatsZeroTitle": "Will be reset:",
-    "clearStatsZeroItems": ["Revenue", "Profit", "Sales statistics", "Dashboard indicators", "Charts & statistics"],
+    "clearStatsZeroItems": [
+      "Revenue",
+      "Profit",
+      "Sales statistics",
+      "Dashboard indicators",
+      "Charts & statistics"
+    ],
     "clearStatsKeepTitle": "Will NOT be deleted:",
-    "clearStatsKeepItems": ["Meals", "Products", "Categories", "Customers", "Base orders", "Reviews", "Restaurant settings"],
+    "clearStatsKeepItems": [
+      "Meals",
+      "Products",
+      "Categories",
+      "Customers",
+      "Base orders",
+      "Reviews",
+      "Restaurant settings"
+    ],
     "clearStatsTypeHint": "Type RESET to confirm",
     "clearStatsSuccess": "Dashboard statistics reset successfully",
     "clearStatsError": "Failed to reset statistics, please try again",
@@ -489,7 +503,35 @@
       "branches": "Branches",
       "contacts": "Messages",
       "settings": "Settings",
-      "analytics": "Analytics"
+      "analytics": "Analytics",
+      "account": "Account"
+    },
+    "account": {
+      "title": "Account Settings",
+      "subtitle": "Securely change your email address and password",
+      "noAccess": "This page is available to administrators only.",
+      "emailTitle": "Change Email",
+      "emailHint": "Requires your current password and confirmation of the new email. When email delivery is configured, the new address must be verified before it becomes your login email.",
+      "currentIs": "Current email: {email}",
+      "newEmail": "New email",
+      "confirmNewEmail": "Confirm new email",
+      "currentPassword": "Current password",
+      "currentPasswordRequired": "Current password is required",
+      "changeEmail": "Change email",
+      "emailInvalid": "Please enter a valid email address",
+      "emailMismatch": "Emails do not match",
+      "emailChanged": "Email changed to {email}",
+      "emailChangePending": "A verification email was sent to the new address — click the link inside it to complete the change",
+      "emailVerified": "New email verified: {email}",
+      "emailVerifyFailed": "Failed to verify the email change",
+      "passwordTitle": "Change Password",
+      "passwordHint": "New password: at least 8 characters with letters and numbers. All other sessions will be signed out.",
+      "newPassword": "New password",
+      "confirmNewPassword": "Confirm new password",
+      "changePassword": "Change password",
+      "weakPassword": "Password must be at least 8 characters and contain letters and numbers",
+      "passwordMismatch": "Passwords do not match",
+      "passwordChanged": "Password changed successfully"
     }
   },
   "review": {

@@ -38,3 +38,20 @@ export const forgotPassword = (email: string): Promise<DevResetPayload | null> =
 
 export const resetPassword = (token: string, password: string): Promise<void> =>
   unwrap(api.post<ApiEnvelope<null>>('/auth/reset-password', { token, password })).then(() => undefined);
+
+export const changePassword = (payload: {
+  currentPassword: string;
+  newPassword: string;
+  newPasswordConfirm: string;
+}): Promise<{ accessToken: string }> =>
+  unwrap(api.post<ApiEnvelope<{ accessToken: string }>>('/auth/change-password', payload));
+
+export const changeEmail = (payload: {
+  email: string;
+  confirmEmail: string;
+  currentPassword: string;
+}): Promise<{ pending: boolean; email?: string }> =>
+  unwrap(api.post<ApiEnvelope<{ pending: boolean; email?: string }>>('/auth/change-email', payload));
+
+export const verifyEmailChange = (token: string): Promise<{ email: string }> =>
+  unwrap(api.get<ApiEnvelope<{ email: string }>>('/auth/verify-email-change', { params: { token } }));

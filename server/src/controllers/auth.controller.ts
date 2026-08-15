@@ -9,7 +9,7 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { clearAuthCookies, setAuthCookies, REFRESH_COOKIE_NAME } from '../utils/cookies';
 import { generateEmailCode, generateEmailToken, hashToken, verifyRefreshToken } from '../utils/token';
-import { enqueuePasswordResetOtp, enqueueVerificationEmail } from '../services/email.service';
+import { enqueueEmailChangeVerification, enqueuePasswordResetOtp, enqueueVerificationEmail } from '../services/email.service';
 import { ROLES } from '../constants';
 
 export const getUserWithRole = async (id: string) => {
@@ -192,8 +192,63 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   const ok = await bcrypt.compare(currentPassword, user.passwordHash ?? '');
   if (!ok) throw new ApiError(400, 'Current password is incorrect');
   const passwordHash = await bcrypt.hash(newPassword, 10);
+  // Invalidate every stored refresh token (all other sessions), then rotate a
+  // fresh session for the current one so the admin stays signed in here.
   await usersRepo.update(user.id, { passwordHash, refreshToken: null });
-  res.json(new ApiResponse(200, null, 'Password changed'));
+  const { accessToken, refreshToken } = setAuthCookies(res, user.id);
+  await usersRepo.update(user.id, { refreshToken });
+  res.json(new ApiResponse(200, { accessToken }, 'Password changed'));
+});
+
+export const changeEmail = asyncHandler(async (req: Request, res: Response) => {
+  const { email, currentPassword } = req.body;
+  const id = (req as { user?: { id: string } }).user?.id as string;
+  const user = await usersRepo.getById(id);
+  if (!user) throw new ApiError(404, 'User not found');
+  const ok = await bcrypt.compare(currentPassword, user.passwordHash ?? '');
+  if (!ok) throw new ApiError(400, 'Current password is incorrect');
+  if (email === user.email.toLowerCase()) throw new ApiError(400, 'New email is the same as the current email');
+  if ((await usersRepo.countByEmail(email)) > 0) throw new ApiError(409, 'Email already registered');
+
+  // Email delivery configured → verify the new address first (single-use token,
+  // 24h expiry, stored hashed). No SMTP → apply immediately (dev fallback).
+  if (smtpConfigured) {
+    const token = generateEmailToken();
+    await usersRepo.update(user.id, {
+      pendingEmail: email,
+      emailChangeToken: token,
+      emailChangeExpires: new Date(Date.now() + 24 * 3600 * 1000),
+    });
+    await enqueueEmailChangeVerification(email, token);
+    res.json(new ApiResponse(200, { pending: true }, 'Verification email sent to the new address'));
+    return;
+  }
+
+  await usersRepo.update(user.id, { email, refreshToken: null });
+  const { accessToken, refreshToken } = setAuthCookies(res, user.id);
+  await usersRepo.update(user.id, { refreshToken });
+  res.json(new ApiResponse(200, { pending: false, email, accessToken }, 'Email updated'));
+});
+
+export const verifyEmailChange = asyncHandler(async (req: Request, res: Response) => {
+  const { token } = req.query as { token?: string };
+  if (!token) throw new ApiError(400, 'Invalid or expired verification token');
+  const user = await usersRepo.getByEmailChangeToken(token);
+  if (!user || !user.pendingEmail || !user.emailChangeExpires || user.emailChangeExpires < new Date()) {
+    throw new ApiError(400, 'Invalid or expired verification token');
+  }
+  if ((await usersRepo.countByEmail(user.pendingEmail)) > 0) {
+    throw new ApiError(409, 'Email already registered');
+  }
+  const newEmail = user.pendingEmail;
+  await usersRepo.update(user.id, {
+    email: newEmail,
+    pendingEmail: null,
+    emailChangeToken: null,
+    emailChangeExpires: null,
+    refreshToken: null,
+  });
+  res.json(new ApiResponse(200, { email: newEmail }, 'Email updated'));
 });
 
 export const me = asyncHandler(async (req: Request, res: Response) => {

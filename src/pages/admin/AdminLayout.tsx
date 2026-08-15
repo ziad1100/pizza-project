@@ -23,6 +23,7 @@ import {
   Star,
   Sun,
   Tag,
+  UserCog,
   Users,
   X,
 } from 'lucide-react';
@@ -69,6 +70,7 @@ const navGroups: { label: string; items: { to: string; icon: typeof LayoutDashbo
       { to: '/admin/branches', icon: MapPin, label: 'admin.nav.branches' },
       { to: '/admin/contacts', icon: Mail, label: 'admin.nav.contacts' },
       { to: '/admin/settings', icon: Settings, label: 'admin.nav.settings' },
+      { to: '/admin/account', icon: UserCog, label: 'admin.nav.account' },
     ],
   },
 ];

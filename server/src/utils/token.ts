@@ -9,7 +9,10 @@ export const signAccessToken = (userId: string): string => {
 };
 
 export const signRefreshToken = (userId: string): string => {
-  return jwt.sign({ sub: userId, type: 'refresh' }, env.jwtRefreshSecret, {
+  // A unique `jti` guarantees every issued refresh token differs — even two
+  // signs within the same `iat` second (e.g. login then an immediate password
+  // or email change) — so session rotation genuinely invalidates old tokens.
+  return jwt.sign({ sub: userId, type: 'refresh', jti: crypto.randomUUID() }, env.jwtRefreshSecret, {
     expiresIn: env.refreshTokenExpires,
   } as SignOptions);
 };

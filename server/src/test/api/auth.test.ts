@@ -338,7 +338,7 @@ describe('change password', () => {
   it('changes the password and allows login with the new one', async () => {
     const user = await createUser({ email: 'changeme@pizzahouse.test' });
     const auth = bearer(toId(user.id));
-    const res = await api.post(`${AUTH}/change-password`).set(auth).send({ currentPassword: 'Pizza123!', newPassword: 'Rotated123' });
+    const res = await api.post(`${AUTH}/change-password`).set(auth).send({ currentPassword: 'Pizza123!', newPassword: 'Rotated123', newPasswordConfirm: 'Rotated123' });
     expect(res.status).toBe(200);
     const login = await api.post(`${AUTH}/login`).send({ email: 'changeme@pizzahouse.test', password: 'Rotated123' });
     expect(login.status).toBe(200);
@@ -349,7 +349,7 @@ describe('change password', () => {
     const res = await api
       .post(`${AUTH}/change-password`)
       .set(bearer(toId(user.id)))
-      .send({ currentPassword: 'WrongPass1', newPassword: 'Rotated123' });
+      .send({ currentPassword: 'WrongPass1', newPassword: 'Rotated123', newPasswordConfirm: 'Rotated123' });
     expect(res.status).toBe(400);
   });
 
@@ -362,7 +362,7 @@ describe('change password', () => {
     const res = await api
       .post(`${AUTH}/change-password`)
       .set(bearer(toId((await usersRepo.getByEmail('revokechangepw@pizzahouse.test'))!.id)))
-      .send({ currentPassword: 'Pizza123!', newPassword: 'Rotated123' });
+      .send({ currentPassword: 'Pizza123!', newPassword: 'Rotated123', newPasswordConfirm: 'Rotated123' });
     expect(res.status).toBe(200);
     const reuse = await api.post(`${AUTH}/refresh`).set('Cookie', cookie);
     expect(reuse.status).toBe(401);

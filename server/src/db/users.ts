@@ -1,7 +1,7 @@
 ﻿import { query } from './index';
 import { hashToken } from '../utils/token';
 
-const TOKEN_COLUMNS: readonly string[] = ['refreshToken', 'emailVerifyToken', 'resetToken'];
+const TOKEN_COLUMNS: readonly string[] = ['refreshToken', 'emailVerifyToken', 'resetToken', 'emailChangeToken'];
 const normalize = (sets: Record<string, unknown>): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(sets)) {
@@ -30,6 +30,9 @@ export interface UserWithCredentials extends SafeUser {
   emailVerifyExpires: Date | null;
   resetToken: string | null;
   resetTokenExpires: Date | null;
+  pendingEmail: string | null;
+  emailChangeToken: string | null;
+  emailChangeExpires: Date | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -38,7 +41,8 @@ const PUBLIC_COLS = `u.id::text AS "id", u."fullName", u.email, u.phone, u.role:
   u."isVerified", u.addresses, u.provider::text AS "provider", u."providerId"`;
 
 const WITH_CRED_COLS = `${PUBLIC_COLS}, u."passwordHash", u."refreshToken", u."emailVerifyToken",
-  u."emailVerifyExpires", u."resetToken", u."resetTokenExpires", u."isActive", u."createdAt"`;
+  u."emailVerifyExpires", u."resetToken", u."resetTokenExpires", u."pendingEmail",
+  u."emailChangeToken", u."emailChangeExpires", u."isActive", u."createdAt"`;
 
 export const getById = async (id: string): Promise<UserWithCredentials | null> => {
   const rows = await query(`SELECT ${WITH_CRED_COLS} FROM users u WHERE u.id = $1::uuid LIMIT 1`, [id]);
@@ -63,6 +67,11 @@ export const getByVerifyToken = async (token: string): Promise<UserWithCredentia
 
 export const getByResetToken = async (token: string): Promise<UserWithCredentials | null> => {
   const rows = await query(`SELECT ${WITH_CRED_COLS} FROM users u WHERE u."resetToken" = $1 LIMIT 1`, [hashToken(token)]);
+  return ((rows[0] as unknown) as UserWithCredentials | undefined) ?? null;
+};
+
+export const getByEmailChangeToken = async (token: string): Promise<UserWithCredentials | null> => {
+  const rows = await query(`SELECT ${WITH_CRED_COLS} FROM users u WHERE u."emailChangeToken" = $1 LIMIT 1`, [hashToken(token)]);
   return ((rows[0] as unknown) as UserWithCredentials | undefined) ?? null;
 };
 

@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import passport from '../config/passport';
 import * as auth from '../controllers/auth.controller';
-import { requireAuth } from '../middlewares/auth';
+import { requireAuth, requireRole } from '../middlewares/auth';
 import { authLimiter } from '../middlewares/rateLimiter';
 import { zodBody } from '../middlewares/zod';
 import {
+  changeEmailSchema,
   changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
@@ -22,7 +23,9 @@ router.post('/refresh', auth.refresh);
 router.get('/verify-email', auth.verifyEmail);
 router.post('/forgot-password', authLimiter, zodBody(forgotPasswordSchema), auth.forgotPassword);
 router.post('/reset-password', authLimiter, zodBody(resetPasswordSchema), auth.resetPassword);
-router.post('/change-password', requireAuth, zodBody(changePasswordSchema), auth.changePassword);
+router.post('/change-password', authLimiter, requireAuth, zodBody(changePasswordSchema), auth.changePassword);
+router.post('/change-email', authLimiter, requireAuth, requireRole('admin'), zodBody(changeEmailSchema), auth.changeEmail);
+router.get('/verify-email-change', authLimiter, auth.verifyEmailChange);
 router.get('/me', requireAuth, auth.me);
 
 if (env.googleClientId) {

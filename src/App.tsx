@@ -37,6 +37,7 @@ const AdminOffersPage = lazy(() => import('@/pages/admin/AdminOffersPage').then(
 const AdminBannersPage = lazy(() => import('@/pages/admin/AdminBannersPage').then((m) => ({ default: m.AdminBannersPage })));
 const AdminContactsPage = lazy(() => import('@/pages/admin/AdminContactsPage').then((m) => ({ default: m.AdminContactsPage })));
 const AdminSettingsPage = lazy(() => import('@/pages/admin/AdminSettingsPage').then((m) => ({ default: m.AdminSettingsPage })));
+const AdminAccountPage = lazy(() => import('@/pages/admin/AdminAccountPage').then((m) => ({ default: m.AdminAccountPage })));
 const AdminReviewsPage = lazy(() => import('@/pages/admin/AdminReviewsPage').then((m) => ({ default: m.AdminReviewsPage })));
 const AdminGalleryPage = lazy(() => import('@/pages/admin/AdminGalleryPage').then((m) => ({ default: m.AdminGalleryPage })));
 
@@ -164,6 +165,7 @@ const router = createBrowserRouter([
       { path: 'branches', element: <AdminBranchesPage /> },
       { path: 'contacts', element: <AdminContactsPage /> },
       { path: 'settings', element: <AdminSettingsPage /> },
+      { path: 'account', element: <AdminAccountPage /> },
     ],
   },
 ]);

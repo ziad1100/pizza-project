@@ -42,7 +42,30 @@ export const resetPasswordSchema = z.object({
     .regex(/[0-9]/, 'Password must contain numbers'),
 });
 
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: password,
+    newPasswordConfirm: z.string().min(1, 'Please confirm the new password'),
+  })
+  .superRefine((val, ctx) => {
+    if (val.newPassword !== val.newPasswordConfirm) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['newPasswordConfirm'], message: 'Passwords do not match' });
+    }
+  });
+
+export const changeEmailSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email('Valid email is required'),
+    confirmEmail: z.string().trim().toLowerCase().email('Valid email confirmation is required'),
+    currentPassword: z.string().min(1, 'Current password is required'),
+  })
+  .superRefine((val, ctx) => {
+    if (val.email !== val.confirmEmail) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['confirmEmail'], message: 'Emails do not match' });
+    }
+  });
+
+export const verifyEmailChangeSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
 });
